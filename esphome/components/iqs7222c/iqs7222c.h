@@ -14,6 +14,8 @@
 namespace esphome {
 namespace iqs7222c {
 
+const uint8_t IQS7222C_MAX_BUTTONS = 8;
+
 struct IQS7222CStore {
   volatile bool touched{true};
   volatile bool iqs7222c_deviceRDY{true};
@@ -22,14 +24,15 @@ struct IQS7222CStore {
   static void gpio_intr(IQS7222CStore *store);
 };
 
-// class IQS7222CChannel : public binary_sensor::BinarySensor {
-//  public:
-//   void set_channel(uint8_t channel) { channel_ = channel; }
-//   void process(uint8_t data) { this->publish_state(static_cast<bool>(data & (1 << this->channel_))); }
+class IQS7222CChannel : public binary_sensor::BinarySensor {
+ public:
+  void set_channel(uint8_t channel) { channel_ = channel; }
+  const uint8_t get_channel() const { return channel_; }
+  void publish(bool state) { this->publish_state(state); }
 
-//  protected:
-//   uint8_t channel_{0};
-// };
+ protected:
+  uint8_t channel_{0};
+};
 
 class IQS7222CComponent : public Component, public i2c::I2CDevice {
  public:
@@ -41,13 +44,23 @@ class IQS7222CComponent : public Component, public i2c::I2CDevice {
   void set_interrupt_pin(InternalGPIOPin *pin) { this->interrupt_pin_ = pin; }
   // void set_mclr_pin(GPIOPin *mclr_pin) { this->mclr_pin_ = mclr_pin; }
 
-  // void register_channel(IQS7222CChannel *channel) { this->channels_.push_back(channel); }
+  void register_channel(IQS7222CChannel *channel) {
+    if (channel->get_channel() < IQS7222C_MAX_BUTTONS) {
+      this->channels[channel->get_channel()].push_back(channel);
+    };
+  }
   // void set_touch_threshold(uint8_t touch_threshold) { this->touch_threshold_ = touch_threshold; };
   // void set_allow_multiple_touches(bool allow_multiple_touches) {
   //   this->allow_multiple_touches_ = allow_multiple_touches ? 0x41 : 0x80;
   // };
 
  protected:
+  void publish_channel_states_();
+  bool new_data_available{false};
+  iqs7222c_ch_states button_states[IQS7222C_MAX_BUTTONS] = {IQS7222C_CH_NONE, IQS7222C_CH_NONE, IQS7222C_CH_NONE,
+                                                            IQS7222C_CH_NONE, IQS7222C_CH_NONE, IQS7222C_CH_NONE,
+                                                            IQS7222C_CH_NONE, IQS7222C_CH_NONE};
+
   // bool iqs7222c_deviceRDY{false};
   InternalGPIOPin *interrupt_pin_{};
   void attach_interrupt_(InternalGPIOPin *irq_pin, esphome::gpio::InterruptType type);
@@ -60,7 +73,6 @@ class IQS7222CComponent : public Component, public i2c::I2CDevice {
 
   // Public Variables
   IQS7222C_MEMORY_MAP IQSMemoryMap;
-  bool new_data_available;
 
   bool init(void);
   void run(void);
@@ -103,7 +115,8 @@ class IQS7222CComponent : public Component, public i2c::I2CDevice {
   uint8_t setBit(uint8_t data, uint8_t bit_number);
   uint8_t clearBit(uint8_t data, uint8_t bit_number);
 
-  // std::vector<IQS7222CChannel *> channels_{};
+  std::vector<IQS7222CChannel *> channels[IQS7222C_MAX_BUTTONS];
+
   // uint8_t touch_threshold_{0x20};
   // uint8_t allow_multiple_touches_{0x80};
 

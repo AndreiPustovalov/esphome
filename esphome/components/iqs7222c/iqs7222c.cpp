@@ -74,6 +74,18 @@ void IQS7222CComponent::dump_config() {
 void IQS7222CComponent::loop() {
   this->run();
 
+  force_I2C_communication();  // prompt the IQS7222C
+  // force_comms_and_reset(); // function to initialize a force communication window.
+  if (new_data_available) {
+    //    check_power_mode();       // Verify if a power mode change occurred
+    //    read_slider_coordinates();// Read the latest slider coordinates
+    publish_channel_states_();  // Check if a channel state change has occurred
+                                //    show_iqs7222c_data();     // Show data if a forced communication window was
+                                //    requested
+
+    new_data_available = false;
+  }
+
   // this->read_register(IQS7222C_SENSOR_INPUT_STATUS, &touched, 1);
 
   // if (touched) {
@@ -88,6 +100,22 @@ void IQS7222CComponent::loop() {
   //   channel->process(touched);
   // }
 }
+
+void IQS7222CComponent::publish_channel_states_() {
+  // check button changes
+  // button can be in 3 states: NONE, PROX, TOUCH,
+  // PROX is not interesting for us, we only use TOUCH
+  for (auto btn = 0; btn < IQS7222C_MAX_BUTTONS; btn++) {
+    bool touched = channel_touchState((iqs7222c_channel_e) btn);
+    if (touched != (button_states[btn] == IQS7222C_CH_TOUCH)) {
+      button_states[btn] = touched ? IQS7222C_CH_TOUCH : IQS7222C_CH_NONE;
+      for (auto *channel : this->channels[btn]) {
+        channel->publish_state(touched);
+      }
+    }
+  }
+}
+
 /* Private Global Variables */
 
 // uint8_t iqs7222c_ready_pin;
