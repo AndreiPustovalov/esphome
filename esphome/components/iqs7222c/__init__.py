@@ -1,7 +1,7 @@
 import esphome.codegen as cg
 import esphome.config_validation as cv
 from esphome.components import i2c
-from esphome.const import CONF_ID, CONF_INTERRUPT_PIN
+from esphome.const import CONF_ID, CONF_INTERRUPT_PIN, CONF_RESET_PIN
 from esphome import pins
 
 DEPENDENCIES = ["i2c"]
@@ -17,7 +17,8 @@ CONFIG_SCHEMA = (
     cv.Schema(
         {
             cv.GenerateID(): cv.declare_id(IQS7222CComponent),
-            cv.Optional(CONF_INTERRUPT_PIN): pins.internal_gpio_input_pin_schema,
+            cv.Required(CONF_INTERRUPT_PIN): pins.internal_gpio_input_pin_schema,
+            cv.Required(CONF_RESET_PIN): pins.gpio_output_pin_schema,
         }
     )
     .extend(cv.COMPONENT_SCHEMA)
@@ -30,6 +31,8 @@ async def to_code(config):
     cg.add(
         var.set_interrupt_pin(await cg.gpio_pin_expression(config[CONF_INTERRUPT_PIN]))
     )
+
+    cg.add(var.set_mclr_pin(await cg.gpio_pin_expression(config[CONF_RESET_PIN])))
 
     await cg.register_component(var, config)
     await i2c.register_i2c_device(var, config)

@@ -23,9 +23,13 @@ void IQS7222CComponent::setup() {
   //   this->interrupt_pin_->setup();
   //   this->attach_interrupt_(this->interrupt_pin_, gpio::INTERRUPT_ANY_EDGE);
   // }
+  this->mclr_pin_->setup();
+  this->hard_reset_();
+  store_.iqs7222c_deviceRDY = true;  // interrupts are not working yet
+  // force_I2C_communication();
 
-  iqs7222c_state.state = IQS7222C_STATE_START;
-  iqs7222c_state.init_state = IQS7222C_INIT_VERIFY_PRODUCT;
+  iqs7222c_state.state = IQS7222C_STATE_NONE;            // IQS7222C_STATE_START;
+  iqs7222c_state.init_state = IQS7222C_INIT_READ_RESET;  //  IQS7222C_INIT_VERIFY_PRODUCT;
 
   //   // Check if IQS7222C is actually connected
   //   this->read_byte(IQS7222C_PRODUCT_ID, &this->iqs7222c_product_id_);
@@ -54,6 +58,15 @@ void IQS7222CComponent::setup() {
   //   this->write_byte(IQS7222C_STAND_BY_CONFIGURATION, 0x30);
 }
 
+void IQS7222CComponent::hard_reset_() {
+  this->mclr_pin_->digital_write(true);
+  delay(100);
+  this->mclr_pin_->digital_write(false);
+  delay(150);
+  this->mclr_pin_->digital_write(true);
+  delay(100);
+}
+
 void IQS7222CComponent::dump_config() {
   ESP_LOGCONFIG(TAG, "IQS7222C:");
   LOG_I2C_DEVICE(this);
@@ -74,20 +87,23 @@ void IQS7222CComponent::dump_config() {
 void IQS7222CComponent::loop() {
   if (first_run) {
     first_run = false;
-    ESP_LOGD(TAG, "First run execution. publishing buttons");
-    for (auto btn = 0; btn < IQS7222C_MAX_BUTTONS; btn++) {
-      for (auto *channel : this->channels[btn]) {
-        ESP_LOGD(TAG, "Button %d", btn);
-        channel->publish_state(false);
+    this->set_timeout(15 * 1000, [this]() {
+      iqs7222c_state.state = IQS7222C_STATE_START;
+      ESP_LOGD(TAG, "First run execution. publishing buttons");
+      for (auto btn = 0; btn < IQS7222C_MAX_BUTTONS; btn++) {
+        for (auto *channel : this->channels[btn]) {
+          ESP_LOGD(TAG, "Button %d", btn);
+          channel->publish_state(false);
+        }
       }
-    }
+    });
     return;
   }
 
   this->run();
 
-  //  force_I2C_communication();  // prompt the IQS7222C
-  // force_comms_and_reset(); // function to initialize a force communication window.
+  // force_I2C_communication();  // prompt the IQS7222C
+  //  force_comms_and_reset(); // function to initialize a force communication window.
   if (new_data_available) {
     //    check_power_mode();       // Verify if a power mode change occurred
     //    read_slider_coordinates();// Read the latest slider coordinates
@@ -196,7 +212,7 @@ bool IQS7222CComponent::init(void) {
         ESP_LOGD(TAG, "Product number is: %d v %d.%d", prod_num, ver_maj, ver_min);
         if (prod_num == IQS7222C_PRODUCT_NUM) {
           ESP_LOGD(TAG, "IQS7222C Release UI Confirmed!");
-          iqs7222c_state.init_state = IQS7222C_INIT_READ_RESET;
+          iqs7222c_state.init_state = IQS7222C_INIT_UPDATE_SETTINGS;
         } else {
           ESP_LOGD(TAG, "Device is not a IQS7222C!");
           iqs7222c_state.init_state = IQS7222C_INIT_NONE;
@@ -213,7 +229,7 @@ bool IQS7222CComponent::init(void) {
         updateInfoFlags(RESTART);
         if (checkReset()) {
           ESP_LOGD(TAG, "Reset event occurred.");
-          iqs7222c_state.init_state = IQS7222C_INIT_UPDATE_SETTINGS;
+          iqs7222c_state.init_state = IQS7222C_INIT_VERIFY_PRODUCT;
         } else {
           ESP_LOGD(TAG, " No Reset Event Detected - Request SW Reset");
           iqs7222c_state.init_state = IQS7222C_INIT_CHIP_RESET;
@@ -230,7 +246,7 @@ bool IQS7222CComponent::init(void) {
         SW_Reset(STOP);
         ESP_LOGD(TAG, "Software Reset Bit Set.");
         delay(100);
-        iqs7222c_state.init_state = IQS7222C_INIT_READ_RESET;
+        iqs7222c_state.init_state = IQS7222C_INIT_VERIFY_PRODUCT;
       }
       break;
 
@@ -305,7 +321,8 @@ bool IQS7222CComponent::init(void) {
     case IQS7222C_INIT_DONE:
       ESP_LOGD(TAG, "IQS7222C_INIT_DONE");
       new_data_available = false;
-      store_.iqs7222c_deviceRDY = false;
+      this->clearRDY();
+      // store_.iqs7222c_deviceRDY = false;
 
       if (this->interrupt_pin_ != nullptr) {
         this->interrupt_pin_->setup();
@@ -335,7 +352,13 @@ bool IQS7222CComponent::init(void) {
  *         read every time a RDY window is received.
  */
 void IQS7222CComponent::run(void) {
-  ESP_LOGD(TAG, "run() %d, %d", iqs7222c_state.state, iqs7222c_state.init_state);
+  {
+    static iqs7222c_s old = {IQS7222C_STATE_NONE, IQS7222C_INIT_ACTIVATE_STREAM_IN_TOUCH_MODE};
+    if (old.state != iqs7222c_state.state || old.init_state != iqs7222c_state.init_state) {
+      old = iqs7222c_state;
+      ESP_LOGD(TAG, "run() %d, %d", iqs7222c_state.state, iqs7222c_state.init_state);
+    }
+  }
   switch (iqs7222c_state.state) {
     /* After a hardware reset, this is the starting position of the main state
        machine */
@@ -381,7 +404,7 @@ void IQS7222CComponent::run(void) {
     case IQS7222C_STATE_RUN:
       if (store_.iqs7222c_deviceRDY) {
         queueValueUpdates();
-        store_.iqs7222c_deviceRDY = false;
+        this->clearRDY();
         new_data_available = false;
         iqs7222c_state.state = IQS7222C_STATE_CHECK_RESET;
       }
@@ -395,11 +418,12 @@ void IRAM_ATTR IQS7222CStore::gpio_intr(IQS7222CStore *store) {
 }
 
 void IQS7222CComponent::attach_interrupt_(InternalGPIOPin *irq_pin, esphome::gpio::InterruptType type) {
-  irq_pin->attach_interrupt(IQS7222CStore::gpio_intr, &this->store_, type);
+  ESP_LOGD(TAG, "attach_interrupt_(RDY)");
   this->store_.irq_pin = irq_pin->to_isr();
   this->store_.init = true;
   this->store_.touched = false;
-  this->store_.iqs7222c_deviceRDY = true;  /// todo ???????????????
+  this->clearRDY();
+  irq_pin->attach_interrupt(IQS7222CStore::gpio_intr, &this->store_, type);
 }
 
 /**
@@ -425,7 +449,10 @@ void IQS7222CComponent::attach_interrupt_(InternalGPIOPin *irq_pin, esphome::gpi
  * @param  None.
  * @retval None.
  */
-void IQS7222CComponent::clearRDY(void) { store_.iqs7222c_deviceRDY = false; }
+void IQS7222CComponent::clearRDY(void) {
+  ESP_LOGD(TAG, "ClearRDY()");
+  store_.iqs7222c_deviceRDY = false;
+}
 
 /**
  * @name   getRDYStatus
@@ -1355,7 +1382,8 @@ void IQS7222CComponent::readRandomBytes(uint8_t memoryAddress, uint8_t numBytes,
   /* Always manually close the RDY window after a STOP is sent to prevent
   writing while ready closes */
   if (stopOrRestart == STOP) {
-    store_.iqs7222c_deviceRDY = false;
+    ESP_LOGD(TAG, "Closing RDY window after read bytes with STOP. reg %02X", memoryAddress);
+    this->clearRDY();
   }
 }
 
@@ -1491,10 +1519,11 @@ uint8_t IQS7222CComponent::clearBit(uint8_t data, uint8_t bit_number) { return (
  * @note   Uses standard Arduino "Wire" library which is for I2C communication.
  */
 void IQS7222CComponent::force_I2C_communication(void) {
-  uint8_t force_communication = 0xFF;
-  this->write_register(0, &force_communication, 1, STOP);
-
   /*Ensure RDY is HIGH at the moment*/
+  if (!store_.iqs7222c_deviceRDY) {
+    uint8_t force_communication = 0xFF;
+    this->write_register(0, &force_communication, 1, STOP);
+  }
   // if (!store_.iqs7222c_deviceRDY) {
   //   uint8_t data = 0xff;
   //   esphome::i2c::WriteBuffer buffers[2];

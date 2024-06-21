@@ -42,7 +42,7 @@ class IQS7222CComponent : public Component, public i2c::I2CDevice {
   void loop() override;
 
   void set_interrupt_pin(InternalGPIOPin *pin) { this->interrupt_pin_ = pin; }
-  // void set_mclr_pin(GPIOPin *mclr_pin) { this->mclr_pin_ = mclr_pin; }
+  void set_mclr_pin(GPIOPin *mclr_pin) { this->mclr_pin_ = mclr_pin; }
 
   void register_channel(IQS7222CChannel *channel) {
     if (channel->get_channel() < IQS7222C_MAX_BUTTONS) {
@@ -66,13 +66,15 @@ class IQS7222CComponent : public Component, public i2c::I2CDevice {
   void attach_interrupt_(InternalGPIOPin *irq_pin, esphome::gpio::InterruptType type);
   IQS7222CStore store_;
 
-  // GPIOPin *mclr_pin_{nullptr};
+  GPIOPin *mclr_pin_{nullptr};
 
   // Public Device States
   iqs7222c_s iqs7222c_state;
 
   // Public Variables
   IQS7222C_MEMORY_MAP IQSMemoryMap;
+
+  void hard_reset_();
 
   bool init(void);
   void run(void);
