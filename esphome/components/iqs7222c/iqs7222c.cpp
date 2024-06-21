@@ -19,10 +19,10 @@ static const char *const TAG = "iqs7222c";
 void IQS7222CComponent::setup() {
   ESP_LOGCONFIG(TAG, "Setting up IQS7222C...");
 
-  if (this->interrupt_pin_ != nullptr) {
-    this->interrupt_pin_->setup();
-    this->attach_interrupt_(this->interrupt_pin_, gpio::INTERRUPT_ANY_EDGE);
-  }
+  // if (this->interrupt_pin_ != nullptr) {
+  //   this->interrupt_pin_->setup();
+  //   this->attach_interrupt_(this->interrupt_pin_, gpio::INTERRUPT_ANY_EDGE);
+  // }
 
   iqs7222c_state.state = IQS7222C_STATE_START;
   iqs7222c_state.init_state = IQS7222C_INIT_VERIFY_PRODUCT;
@@ -72,9 +72,21 @@ void IQS7222CComponent::dump_config() {
 }
 
 void IQS7222CComponent::loop() {
+  if (first_run) {
+    first_run = false;
+    ESP_LOGD(TAG, "First run execution. publishing buttons");
+    for (auto btn = 0; btn < IQS7222C_MAX_BUTTONS; btn++) {
+      for (auto *channel : this->channels[btn]) {
+        ESP_LOGD(TAG, "Button %d", btn);
+        channel->publish_state(false);
+      }
+    }
+    return;
+  }
+
   this->run();
 
-  force_I2C_communication();  // prompt the IQS7222C
+  //  force_I2C_communication();  // prompt the IQS7222C
   // force_comms_and_reset(); // function to initialize a force communication window.
   if (new_data_available) {
     //    check_power_mode();       // Verify if a power mode change occurred
@@ -265,7 +277,17 @@ bool IQS7222CComponent::init(void) {
       if (store_.iqs7222c_deviceRDY) {
         ESP_LOGD(TAG, "IQS7222C_INIT_READ_DATA");
         queueValueUpdates();
-        iqs7222c_state.init_state = IQS7222C_INIT_ACTIVATE_STREAM_IN_TOUCH_MODE;
+        iqs7222c_state.init_state = IQS7222C_INIT_ACTIVATE_EVENT_MODE;
+        // IQS7222C_INIT_ACTIVATE_STREAM_IN_TOUCH_MODE;
+      }
+      break;
+
+    /* Turn on I2C event mode */
+    case IQS7222C_INIT_ACTIVATE_EVENT_MODE:
+      if (store_.iqs7222c_deviceRDY) {
+        ESP_LOGD(TAG, "IQS7222C_INIT_ACTIVATE_EVENT_MODE");
+        setEventMode(STOP);
+        iqs7222c_state.init_state = IQS7222C_INIT_DONE;
       }
       break;
 
@@ -282,7 +304,14 @@ bool IQS7222CComponent::init(void) {
      * up as an interrupt to indicate when new data is available */
     case IQS7222C_INIT_DONE:
       ESP_LOGD(TAG, "IQS7222C_INIT_DONE");
-      new_data_available = true;
+      new_data_available = false;
+      store_.iqs7222c_deviceRDY = false;
+
+      if (this->interrupt_pin_ != nullptr) {
+        this->interrupt_pin_->setup();
+        this->attach_interrupt_(this->interrupt_pin_, gpio::INTERRUPT_ANY_EDGE);
+      }
+
       return true;
       break;
 
@@ -897,7 +926,7 @@ void IQS7222CComponent::writeMM(bool stopOrRestart) {
   transferBytes[28] = CYCLE_4_IREF_0;
   transferBytes[29] = CYCLE_4_IREF_1;
   writeRandomBytes16(IQS7222C_MM_CYCLE_SETUP_0, 30, transferBytes, RESTART);
-  ESP_LOGD(TAG, "1. Write Cycle Settings");
+  // ESP_LOGD(TAG, "1. Write Cycle Settings");
 
   /* Change the Global Cycle Setup */
   /* Memory Map Position 0x8500 - 0x8502 */
@@ -908,7 +937,7 @@ void IQS7222CComponent::writeMM(bool stopOrRestart) {
   transferBytes[4] = COMPENSATION_PRELOAD_0;
   transferBytes[5] = COMPENSATION_PRELOAD_1;
   writeRandomBytes16(IQS7222C_MM_GLOBAL_CYCLE_SETUP, 6, transferBytes, RESTART);
-  ESP_LOGD(TAG, "2. Write Global Cycle Settings");
+  // ESP_LOGD(TAG, "2. Write Global Cycle Settings");
 
   /* Change the Button Setup 0 - 4 */
   /* Memory Map Position 0x9000 - 0x9502 */
@@ -943,7 +972,7 @@ void IQS7222CComponent::writeMM(bool stopOrRestart) {
   transferBytes[28] = BUTTON_4_PROX_EVENT_TIMEOUT;
   transferBytes[29] = BUTTON_4_TOUCH_EVENT_TIMEOUT;
   writeRandomBytes16(IQS7222C_MM_BUTTON_SETUP_0, 30, transferBytes, RESTART);
-  ESP_LOGD(TAG, "3. Write Button Settings 0 - 4");
+  // ESP_LOGD(TAG, "3. Write Button Settings 0 - 4");
 
   /* Change the Button Setup 5 - 9 */
   /* Memory Map Position 0x9500 - 0x9902 */
@@ -978,7 +1007,7 @@ void IQS7222CComponent::writeMM(bool stopOrRestart) {
   transferBytes[28] = BUTTON_9_PROX_EVENT_TIMEOUT;
   transferBytes[29] = BUTTON_9_TOUCH_EVENT_TIMEOUT;
   writeRandomBytes16(IQS7222C_MM_BUTTON_SETUP_5, 30, transferBytes, RESTART);
-  ESP_LOGD(TAG, "4. Write Button Settings 5 - 9");
+  // ESP_LOGD(TAG, "4. Write Button Settings 5 - 9");
 
   /* Change the CH0 Setup */
   /* Memory Map Position 0xA000 - 0xA005 */
@@ -995,7 +1024,7 @@ void IQS7222CComponent::writeMM(bool stopOrRestart) {
   transferBytes[10] = CH0_REFMASK_0;
   transferBytes[11] = CH0_REFMASK_1;
   writeRandomBytes16(IQS7222C_MM_CHANNEL_SETUP_0, 12, transferBytes, RESTART);
-  ESP_LOGD(TAG, "5. Write Channel 0 Settings");
+  // ESP_LOGD(TAG, "5. Write Channel 0 Settings");
 
   /* Change the CH1 Setup */
   /* Memory Map Position 0xA100 - 0xA105 */
@@ -1012,7 +1041,7 @@ void IQS7222CComponent::writeMM(bool stopOrRestart) {
   transferBytes[10] = CH1_REFMASK_0;
   transferBytes[11] = CH1_REFMASK_1;
   writeRandomBytes16(IQS7222C_MM_CHANNEL_SETUP_1, 12, transferBytes, RESTART);
-  ESP_LOGD(TAG, "6. Write Channel 1 Settings");
+  // ESP_LOGD(TAG, "6. Write Channel 1 Settings");
 
   /* Change the CH2 Setup */
   /* Memory Map Position 0xA200 - 0xA205 */
@@ -1029,7 +1058,7 @@ void IQS7222CComponent::writeMM(bool stopOrRestart) {
   transferBytes[10] = CH2_REFMASK_0;
   transferBytes[11] = CH2_REFMASK_1;
   writeRandomBytes16(IQS7222C_MM_CHANNEL_SETUP_2, 12, transferBytes, RESTART);
-  ESP_LOGD(TAG, "7. Write Channel 2 Settings");
+  // ESP_LOGD(TAG, "7. Write Channel 2 Settings");
 
   /* Change the CH3 Setup */
   /* Memory Map Position 0xA300 - 0xA305 */
@@ -1046,7 +1075,7 @@ void IQS7222CComponent::writeMM(bool stopOrRestart) {
   transferBytes[10] = CH3_REFMASK_0;
   transferBytes[11] = CH3_REFMASK_1;
   writeRandomBytes16(IQS7222C_MM_CHANNEL_SETUP_3, 12, transferBytes, RESTART);
-  ESP_LOGD(TAG, "8. Write Channel 3 Settings");
+  // ESP_LOGD(TAG, "8. Write Channel 3 Settings");
 
   /* Change the CH4 Setup */
   /* Memory Map Position 0xA400 - 0xA405 */
@@ -1063,7 +1092,7 @@ void IQS7222CComponent::writeMM(bool stopOrRestart) {
   transferBytes[10] = CH4_REFMASK_0;
   transferBytes[11] = CH4_REFMASK_1;
   writeRandomBytes16(IQS7222C_MM_CHANNEL_SETUP_4, 12, transferBytes, RESTART);
-  ESP_LOGD(TAG, "9. Write Channel 4 Settings");
+  // ESP_LOGD(TAG, "9. Write Channel 4 Settings");
 
   /* Change the CH5 Setup */
   /* Memory Map Position 0xA500 - 0xA505 */
@@ -1080,7 +1109,7 @@ void IQS7222CComponent::writeMM(bool stopOrRestart) {
   transferBytes[10] = CH5_REFMASK_0;
   transferBytes[11] = CH5_REFMASK_1;
   writeRandomBytes16(IQS7222C_MM_CHANNEL_SETUP_5, 12, transferBytes, RESTART);
-  ESP_LOGD(TAG, "10. Write Channel 5 Settings");
+  // ESP_LOGD(TAG, "10. Write Channel 5 Settings");
 
   /* Change the CH6 Setup */
   /* Memory Map Position 0xA600 - 0xA605 */
@@ -1097,7 +1126,7 @@ void IQS7222CComponent::writeMM(bool stopOrRestart) {
   transferBytes[10] = CH6_REFMASK_0;
   transferBytes[11] = CH6_REFMASK_1;
   writeRandomBytes16(IQS7222C_MM_CHANNEL_SETUP_6, 12, transferBytes, RESTART);
-  ESP_LOGD(TAG, "11. Write Channel 6 Settings");
+  // ESP_LOGD(TAG, "11. Write Channel 6 Settings");
 
   /* Change the CH7 Setup */
   /* Memory Map Position 0xA700 - 0xA705 */
@@ -1114,7 +1143,7 @@ void IQS7222CComponent::writeMM(bool stopOrRestart) {
   transferBytes[10] = CH7_REFMASK_0;
   transferBytes[11] = CH7_REFMASK_1;
   writeRandomBytes16(IQS7222C_MM_CHANNEL_SETUP_7, 12, transferBytes, RESTART);
-  ESP_LOGD(TAG, "12. Write Channel 7 Settings");
+  // ESP_LOGD(TAG, "12. Write Channel 7 Settings");
 
   /* Change the CH8 Setup */
   /* Memory Map Position 0xA800 - 0xA805 */
@@ -1131,7 +1160,7 @@ void IQS7222CComponent::writeMM(bool stopOrRestart) {
   transferBytes[10] = CH8_REFMASK_0;
   transferBytes[11] = CH8_REFMASK_1;
   writeRandomBytes16(IQS7222C_MM_CHANNEL_SETUP_8, 12, transferBytes, RESTART);
-  ESP_LOGD(TAG, "13. Write Channel 8 Settings");
+  // ESP_LOGD(TAG, "13. Write Channel 8 Settings");
 
   /* Change the CH9 Setup */
   /* Memory Map Position 0xA900 - 0xA905 */
@@ -1148,7 +1177,7 @@ void IQS7222CComponent::writeMM(bool stopOrRestart) {
   transferBytes[10] = CH9_REFMASK_0;
   transferBytes[11] = CH9_REFMASK_1;
   writeRandomBytes16(IQS7222C_MM_CHANNEL_SETUP_9, 12, transferBytes, RESTART);
-  ESP_LOGD(TAG, "14. Write Channel 9 Settings");
+  // ESP_LOGD(TAG, "14. Write Channel 9 Settings");
 
   /* Change the Filter Betas */
   /* Memory Map Position 0xAA00 - 0xAA01 */
@@ -1157,7 +1186,7 @@ void IQS7222CComponent::writeMM(bool stopOrRestart) {
   transferBytes[2] = LTA_FAST_BETA_FILTER;
   transferBytes[3] = RESERVED_FILTER_0;
   writeRandomBytes16(IQS7222C_MM_FILTER_BETAS, 4, transferBytes, RESTART);
-  ESP_LOGD(TAG, "15. Write Filter Betas");
+  // ESP_LOGD(TAG, "15. Write Filter Betas");
 
   /* Change the Slider/Wheel 0 Setup 0 & Delta Link */
   /* Memory Map Position 0xB000 - 0xB009 */
@@ -1182,7 +1211,7 @@ void IQS7222CComponent::writeMM(bool stopOrRestart) {
   transferBytes[18] = SLIDER0_DELTA3_0;
   transferBytes[19] = SLIDER0_DELTA3_1;
   writeRandomBytes16(IQS7222C_MM_SLIDER_SETUP_0, 20, transferBytes, RESTART);
-  ESP_LOGD(TAG, "16. Slider/Wheel 0 Settings");
+  // ESP_LOGD(TAG, "16. Slider/Wheel 0 Settings");
 
   /* Change the Slider/Wheel 1 Setup 0 */
   /* Memory Map Position 0xB100 - 0xB105 */
@@ -1207,7 +1236,7 @@ void IQS7222CComponent::writeMM(bool stopOrRestart) {
   transferBytes[18] = SLIDER1_DELTA3_0;
   transferBytes[19] = SLIDER1_DELTA3_1;
   writeRandomBytes16(IQS7222C_MM_SLIDER_SETUP_1, 20, transferBytes, RESTART);
-  ESP_LOGD(TAG, "17. Slider/Wheel 1 Settings");
+  // ESP_LOGD(TAG, "17. Slider/Wheel 1 Settings");
 
   /* Change the GPIO Settings */
   /* Memory Map Position 0xC000 - 0xC202 */
@@ -1230,7 +1259,7 @@ void IQS7222CComponent::writeMM(bool stopOrRestart) {
   transferBytes[16] = GPIO2_ENABLESTATUSLINK_0;
   transferBytes[17] = GPIO2_ENABLESTATUSLINK_1;
   writeRandomBytes16(IQS7222C_MM_GPIO_0_SETTINGS, 18, transferBytes, RESTART);
-  ESP_LOGD(TAG, "18. GPIO 0 Settings");
+  // ESP_LOGD(TAG, "18. GPIO 0 Settings");
 
   /* Change the System Settings */
   /* Memory Map Position 0xD0 - 0xD9 */
@@ -1256,20 +1285,20 @@ void IQS7222CComponent::writeMM(bool stopOrRestart) {
   transferBytes[19] = POWER_ATI_EVENT_MASK;
   transferBytes[20] = I2CCOMMS_0;
   writeRandomBytes(IQS7222C_MM_CONTROL_SETTINGS, 21, transferBytes, stopOrRestart);
-  ESP_LOGD(TAG, "19. System Settings");
+  // ESP_LOGD(TAG, "19. System Settings");
 
   /* Change the GPIO Override */
   /* Memory Map Position 0xDB - 0xDB */
   transferBytes[0] = GPIO_OVERRIDE;
   writeRandomBytes(IQS7222C_MM_GPIO_OVERRIDE, 1, transferBytes, stopOrRestart);
-  ESP_LOGD(TAG, "20. GPIO Override");
+  // ESP_LOGD(TAG, "20. GPIO Override");
 
   /* Change the Comms timeout setting */
   /* Memory Map Position 0xDC - 0xDC */
   transferBytes[0] = COMMS_TIMEOUT_0;
   transferBytes[1] = COMMS_TIMEOUT_1;
   writeRandomBytes(IQS7222C_MM_COMMS_TIMEOUT, 2, transferBytes, stopOrRestart);
-  ESP_LOGD(TAG, "21. Communication Timeout");
+  // ESP_LOGD(TAG, "21. Communication Timeout");
 }
 
 /*****************************************************************************/
@@ -1462,28 +1491,28 @@ uint8_t IQS7222CComponent::clearBit(uint8_t data, uint8_t bit_number) { return (
  * @note   Uses standard Arduino "Wire" library which is for I2C communication.
  */
 void IQS7222CComponent::force_I2C_communication(void) {
+  uint8_t force_communication = 0xFF;
+  this->write_register(0, &force_communication, 1, STOP);
+
   /*Ensure RDY is HIGH at the moment*/
-  if (!store_.iqs7222c_deviceRDY) {
-    uint8_t data = 0xff;
-    esphome::i2c::WriteBuffer buffers[2];
-    buffers[0].data = &data;
-    buffers[0].len = 1;
-    bus_->writev(address_, buffers, 2, true);
+  // if (!store_.iqs7222c_deviceRDY) {
+  //   uint8_t data = 0xff;
+  //   esphome::i2c::WriteBuffer buffers[2];
+  //   buffers[0].data = &data;
+  //   buffers[0].len = 1;
+  //   bus_->writev(address_, buffers, 2, true);
 
-    // this->write_byte(0xff, 0, 0, STOP);
-    // this->write_register(0xff, 0, 0, STOP);
+  //   // /* Select the device with the address of "DEMO_IQS7222C_ADDR" and start
+  //   //   communication. */
+  //   // Wire.beginTransmission(_deviceAddress);
 
-    // /* Select the device with the address of "DEMO_IQS7222C_ADDR" and start
-    //   communication. */
-    // Wire.beginTransmission(_deviceAddress);
+  //   // /* Write to memory address 0xFF that will prompt the IQS7222C to open a
+  //   // communication window.*/
+  //   // Wire.write(0xFF);
 
-    // /* Write to memory address 0xFF that will prompt the IQS7222C to open a
-    // communication window.*/
-    // Wire.write(0xFF);
-
-    // /* End the transmission, the user decides to STOP or RESTART. */
-    // Wire.endTransmission(STOP);
-  }
+  //   // /* End the transmission, the user decides to STOP or RESTART. */
+  //   // Wire.endTransmission(STOP);
+  // }
 }
 
 }  // namespace iqs7222c

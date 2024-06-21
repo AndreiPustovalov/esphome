@@ -18,7 +18,7 @@ const uint8_t IQS7222C_MAX_BUTTONS = 8;
 
 struct IQS7222CStore {
   volatile bool touched{true};
-  volatile bool iqs7222c_deviceRDY{true};
+  volatile bool iqs7222c_deviceRDY{false};
   bool init{false};
   ISRInternalGPIOPin irq_pin;
   static void gpio_intr(IQS7222CStore *store);
@@ -123,6 +123,8 @@ class IQS7222CComponent : public Component, public i2c::I2CDevice {
   // uint8_t iqs7222c_product_id_{0};
   // uint8_t iqs7222c_manufacture_id_{0};
   // uint8_t iqs7222c_revision_{0};
+
+  bool first_run{true};
 
   enum ErrorCode {
     NONE = 0,
