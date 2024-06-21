@@ -17,17 +17,19 @@ CONFIG_SCHEMA = (
     cv.Schema(
         {
             cv.GenerateID(): cv.declare_id(IQS7222CComponent),
-            cv.Required(CONF_INTERRUPT_PIN): pins.gpio_output_pin_schema,
+            cv.Optional(CONF_INTERRUPT_PIN): pins.internal_gpio_input_pin_schema,
         }
     )
     .extend(cv.COMPONENT_SCHEMA)
-    .extend(i2c.i2c_device_schema(0x29))
+    .extend(i2c.i2c_device_schema(0x44))
 )
 
 
 async def to_code(config):
     var = cg.new_Pvariable(config[CONF_ID])
-    cg.add(var.set_interrupt_pin(config[CONF_INTERRUPT_PIN]))
+    cg.add(
+        var.set_interrupt_pin(await cg.gpio_pin_expression(config[CONF_INTERRUPT_PIN]))
+    )
 
     await cg.register_component(var, config)
     await i2c.register_i2c_device(var, config)

@@ -149,16 +149,16 @@ bool IQS7222CComponent::init(void) {
        this example */
     case IQS7222C_INIT_VERIFY_PRODUCT:
       if (store_.iqs7222c_deviceRDY) {
-        ESP_LOGD(TAG, "\tIQS7222C_INIT_VERIFY_PRODUCT");
+        ESP_LOGD(TAG, "IQS7222C_INIT_VERIFY_PRODUCT");
         prod_num = getProductNum(RESTART);
         ver_maj = getmajorVersion(RESTART);
         ver_min = getminorVersion(STOP);
         ESP_LOGD(TAG, "Product number is: %d v %d.%d", prod_num, ver_maj, ver_min);
         if (prod_num == IQS7222C_PRODUCT_NUM) {
-          ESP_LOGD(TAG, "\t\tIQS7222C Release UI Confirmed!");
+          ESP_LOGD(TAG, "IQS7222C Release UI Confirmed!");
           iqs7222c_state.init_state = IQS7222C_INIT_READ_RESET;
         } else {
-          ESP_LOGD(TAG, "\t\tDevice is not a IQS7222C!");
+          ESP_LOGD(TAG, "Device is not a IQS7222C!");
           iqs7222c_state.init_state = IQS7222C_INIT_NONE;
           this->error_code_ = COMMUNICATION_FAILED;
           this->mark_failed();
@@ -169,13 +169,13 @@ bool IQS7222CComponent::init(void) {
     /* Verify if a reset has occurred */
     case IQS7222C_INIT_READ_RESET:
       if (store_.iqs7222c_deviceRDY) {
-        ESP_LOGD(TAG, "\tIQS7222C_INIT_READ_RESET");
+        ESP_LOGD(TAG, "IQS7222C_INIT_READ_RESET");
         updateInfoFlags(RESTART);
         if (checkReset()) {
-          ESP_LOGD(TAG, "\t\tReset event occurred.");
+          ESP_LOGD(TAG, "Reset event occurred.");
           iqs7222c_state.init_state = IQS7222C_INIT_UPDATE_SETTINGS;
         } else {
-          ESP_LOGD(TAG, "\t\t No Reset Event Detected - Request SW Reset");
+          ESP_LOGD(TAG, " No Reset Event Detected - Request SW Reset");
           iqs7222c_state.init_state = IQS7222C_INIT_CHIP_RESET;
         }
       }
@@ -184,11 +184,11 @@ bool IQS7222CComponent::init(void) {
     /* Perform SW Reset */
     case IQS7222C_INIT_CHIP_RESET:
       if (store_.iqs7222c_deviceRDY) {
-        ESP_LOGD(TAG, "\tIQS7222C_INIT_CHIP_RESET");
+        ESP_LOGD(TAG, "IQS7222C_INIT_CHIP_RESET");
 
         // Perform SW Reset
         SW_Reset(STOP);
-        ESP_LOGD(TAG, "\t\tSoftware Reset Bit Set.");
+        ESP_LOGD(TAG, "Software Reset Bit Set.");
         delay(100);
         iqs7222c_state.init_state = IQS7222C_INIT_READ_RESET;
       }
@@ -197,7 +197,7 @@ bool IQS7222CComponent::init(void) {
     /* Write all settings to IQS7222C from .h file */
     case IQS7222C_INIT_UPDATE_SETTINGS:
       if (store_.iqs7222c_deviceRDY) {
-        ESP_LOGD(TAG, "\tIQS7222C_INIT_UPDATE_SETTINGS");
+        ESP_LOGD(TAG, "IQS7222C_INIT_UPDATE_SETTINGS");
         writeMM(RESTART);
         iqs7222c_state.init_state = IQS7222C_INIT_ACK_RESET;
       }
@@ -206,7 +206,7 @@ bool IQS7222CComponent::init(void) {
     /* Acknowledge that the device went through a reset */
     case IQS7222C_INIT_ACK_RESET:
       if (store_.iqs7222c_deviceRDY) {
-        ESP_LOGD(TAG, "\tIQS7222C_INIT_ACK_RESET");
+        ESP_LOGD(TAG, "IQS7222C_INIT_ACK_RESET");
         acknowledgeReset(STOP);
         iqs7222c_state.init_state = IQS7222C_INIT_ATI;
       }
@@ -215,10 +215,10 @@ bool IQS7222CComponent::init(void) {
     /* Run the ATI algorithm to recalibrate the device with newly added settings */
     case IQS7222C_INIT_ATI:
       if (store_.iqs7222c_deviceRDY) {
-        ESP_LOGD(TAG, "\tIQS7222C_INIT_ATI");
+        ESP_LOGD(TAG, "IQS7222C_INIT_ATI");
         ReATI(STOP);
         iqs7222c_state.init_state = IQS7222C_INIT_WAIT_FOR_ATI;
-        ESP_LOGD(TAG, "\tIQS7222C_INIT_WAIT_FOR_ATI");
+        ESP_LOGD(TAG, "IQS7222C_INIT_WAIT_FOR_ATI");
       }
       break;
 
@@ -226,7 +226,7 @@ bool IQS7222CComponent::init(void) {
     case IQS7222C_INIT_WAIT_FOR_ATI:
       if (store_.iqs7222c_deviceRDY) {
         if (!readATIactive()) {
-          ESP_LOGD(TAG, "\t\tDONE");
+          ESP_LOGD(TAG, "DONE");
           iqs7222c_state.init_state = IQS7222C_INIT_READ_DATA;
         }
       }
@@ -235,7 +235,7 @@ bool IQS7222CComponent::init(void) {
     /* Read the latest data from the iqs7222c */
     case IQS7222C_INIT_READ_DATA:
       if (store_.iqs7222c_deviceRDY) {
-        ESP_LOGD(TAG, "\tIQS7222C_INIT_READ_DATA");
+        ESP_LOGD(TAG, "IQS7222C_INIT_READ_DATA");
         queueValueUpdates();
         iqs7222c_state.init_state = IQS7222C_INIT_ACTIVATE_STREAM_IN_TOUCH_MODE;
       }
@@ -244,7 +244,7 @@ bool IQS7222CComponent::init(void) {
     /* Turn on I2C Stream-In-Touch mode */
     case IQS7222C_INIT_ACTIVATE_STREAM_IN_TOUCH_MODE:
       if (store_.iqs7222c_deviceRDY) {
-        ESP_LOGD(TAG, "\tIQS7222C_INIT_ACTIVATE_STREAM_IN_TOUCH_MODE");
+        ESP_LOGD(TAG, "IQS7222C_INIT_ACTIVATE_STREAM_IN_TOUCH_MODE");
         setStreamInTouchMode(STOP);
         iqs7222c_state.init_state = IQS7222C_INIT_DONE;
       }
@@ -253,7 +253,7 @@ bool IQS7222CComponent::init(void) {
     /* If all operations have been completed correctly, the RDY pin can be set
      * up as an interrupt to indicate when new data is available */
     case IQS7222C_INIT_DONE:
-      ESP_LOGD(TAG, "\tIQS7222C_INIT_DONE");
+      ESP_LOGD(TAG, "IQS7222C_INIT_DONE");
       new_data_available = true;
       return true;
       break;
@@ -278,6 +278,7 @@ bool IQS7222CComponent::init(void) {
  *         read every time a RDY window is received.
  */
 void IQS7222CComponent::run(void) {
+  ESP_LOGD(TAG, "run() %d, %d", iqs7222c_state.state, iqs7222c_state.init_state);
   switch (iqs7222c_state.state) {
     /* After a hardware reset, this is the starting position of the main state
        machine */
@@ -341,6 +342,7 @@ void IQS7222CComponent::attach_interrupt_(InternalGPIOPin *irq_pin, esphome::gpi
   this->store_.irq_pin = irq_pin->to_isr();
   this->store_.init = true;
   this->store_.touched = false;
+  this->store_.iqs7222c_deviceRDY = true;  /// todo ???????????????
 }
 
 /**
@@ -867,7 +869,7 @@ void IQS7222CComponent::writeMM(bool stopOrRestart) {
   transferBytes[28] = CYCLE_4_IREF_0;
   transferBytes[29] = CYCLE_4_IREF_1;
   writeRandomBytes16(IQS7222C_MM_CYCLE_SETUP_0, 30, transferBytes, RESTART);
-  ESP_LOGD(TAG, "\t\t1. Write Cycle Settings");
+  ESP_LOGD(TAG, "1. Write Cycle Settings");
 
   /* Change the Global Cycle Setup */
   /* Memory Map Position 0x8500 - 0x8502 */
@@ -878,7 +880,7 @@ void IQS7222CComponent::writeMM(bool stopOrRestart) {
   transferBytes[4] = COMPENSATION_PRELOAD_0;
   transferBytes[5] = COMPENSATION_PRELOAD_1;
   writeRandomBytes16(IQS7222C_MM_GLOBAL_CYCLE_SETUP, 6, transferBytes, RESTART);
-  ESP_LOGD(TAG, "\t\t2. Write Global Cycle Settings");
+  ESP_LOGD(TAG, "2. Write Global Cycle Settings");
 
   /* Change the Button Setup 0 - 4 */
   /* Memory Map Position 0x9000 - 0x9502 */
@@ -913,7 +915,7 @@ void IQS7222CComponent::writeMM(bool stopOrRestart) {
   transferBytes[28] = BUTTON_4_PROX_EVENT_TIMEOUT;
   transferBytes[29] = BUTTON_4_TOUCH_EVENT_TIMEOUT;
   writeRandomBytes16(IQS7222C_MM_BUTTON_SETUP_0, 30, transferBytes, RESTART);
-  ESP_LOGD(TAG, "\t\t3. Write Button Settings 0 - 4");
+  ESP_LOGD(TAG, "3. Write Button Settings 0 - 4");
 
   /* Change the Button Setup 5 - 9 */
   /* Memory Map Position 0x9500 - 0x9902 */
@@ -948,7 +950,7 @@ void IQS7222CComponent::writeMM(bool stopOrRestart) {
   transferBytes[28] = BUTTON_9_PROX_EVENT_TIMEOUT;
   transferBytes[29] = BUTTON_9_TOUCH_EVENT_TIMEOUT;
   writeRandomBytes16(IQS7222C_MM_BUTTON_SETUP_5, 30, transferBytes, RESTART);
-  ESP_LOGD(TAG, "\t\t4. Write Button Settings 5 - 9");
+  ESP_LOGD(TAG, "4. Write Button Settings 5 - 9");
 
   /* Change the CH0 Setup */
   /* Memory Map Position 0xA000 - 0xA005 */
@@ -965,7 +967,7 @@ void IQS7222CComponent::writeMM(bool stopOrRestart) {
   transferBytes[10] = CH0_REFMASK_0;
   transferBytes[11] = CH0_REFMASK_1;
   writeRandomBytes16(IQS7222C_MM_CHANNEL_SETUP_0, 12, transferBytes, RESTART);
-  ESP_LOGD(TAG, "\t\t5. Write Channel 0 Settings");
+  ESP_LOGD(TAG, "5. Write Channel 0 Settings");
 
   /* Change the CH1 Setup */
   /* Memory Map Position 0xA100 - 0xA105 */
@@ -982,7 +984,7 @@ void IQS7222CComponent::writeMM(bool stopOrRestart) {
   transferBytes[10] = CH1_REFMASK_0;
   transferBytes[11] = CH1_REFMASK_1;
   writeRandomBytes16(IQS7222C_MM_CHANNEL_SETUP_1, 12, transferBytes, RESTART);
-  ESP_LOGD(TAG, "\t\t6. Write Channel 1 Settings");
+  ESP_LOGD(TAG, "6. Write Channel 1 Settings");
 
   /* Change the CH2 Setup */
   /* Memory Map Position 0xA200 - 0xA205 */
@@ -999,7 +1001,7 @@ void IQS7222CComponent::writeMM(bool stopOrRestart) {
   transferBytes[10] = CH2_REFMASK_0;
   transferBytes[11] = CH2_REFMASK_1;
   writeRandomBytes16(IQS7222C_MM_CHANNEL_SETUP_2, 12, transferBytes, RESTART);
-  ESP_LOGD(TAG, "\t\t7. Write Channel 2 Settings");
+  ESP_LOGD(TAG, "7. Write Channel 2 Settings");
 
   /* Change the CH3 Setup */
   /* Memory Map Position 0xA300 - 0xA305 */
@@ -1016,7 +1018,7 @@ void IQS7222CComponent::writeMM(bool stopOrRestart) {
   transferBytes[10] = CH3_REFMASK_0;
   transferBytes[11] = CH3_REFMASK_1;
   writeRandomBytes16(IQS7222C_MM_CHANNEL_SETUP_3, 12, transferBytes, RESTART);
-  ESP_LOGD(TAG, "\t\t8. Write Channel 3 Settings");
+  ESP_LOGD(TAG, "8. Write Channel 3 Settings");
 
   /* Change the CH4 Setup */
   /* Memory Map Position 0xA400 - 0xA405 */
@@ -1033,7 +1035,7 @@ void IQS7222CComponent::writeMM(bool stopOrRestart) {
   transferBytes[10] = CH4_REFMASK_0;
   transferBytes[11] = CH4_REFMASK_1;
   writeRandomBytes16(IQS7222C_MM_CHANNEL_SETUP_4, 12, transferBytes, RESTART);
-  ESP_LOGD(TAG, "\t\t9. Write Channel 4 Settings");
+  ESP_LOGD(TAG, "9. Write Channel 4 Settings");
 
   /* Change the CH5 Setup */
   /* Memory Map Position 0xA500 - 0xA505 */
@@ -1050,7 +1052,7 @@ void IQS7222CComponent::writeMM(bool stopOrRestart) {
   transferBytes[10] = CH5_REFMASK_0;
   transferBytes[11] = CH5_REFMASK_1;
   writeRandomBytes16(IQS7222C_MM_CHANNEL_SETUP_5, 12, transferBytes, RESTART);
-  ESP_LOGD(TAG, "\t\t10. Write Channel 5 Settings");
+  ESP_LOGD(TAG, "10. Write Channel 5 Settings");
 
   /* Change the CH6 Setup */
   /* Memory Map Position 0xA600 - 0xA605 */
@@ -1067,7 +1069,7 @@ void IQS7222CComponent::writeMM(bool stopOrRestart) {
   transferBytes[10] = CH6_REFMASK_0;
   transferBytes[11] = CH6_REFMASK_1;
   writeRandomBytes16(IQS7222C_MM_CHANNEL_SETUP_6, 12, transferBytes, RESTART);
-  ESP_LOGD(TAG, "\t\t11. Write Channel 6 Settings");
+  ESP_LOGD(TAG, "11. Write Channel 6 Settings");
 
   /* Change the CH7 Setup */
   /* Memory Map Position 0xA700 - 0xA705 */
@@ -1084,7 +1086,7 @@ void IQS7222CComponent::writeMM(bool stopOrRestart) {
   transferBytes[10] = CH7_REFMASK_0;
   transferBytes[11] = CH7_REFMASK_1;
   writeRandomBytes16(IQS7222C_MM_CHANNEL_SETUP_7, 12, transferBytes, RESTART);
-  ESP_LOGD(TAG, "\t\t12. Write Channel 7 Settings");
+  ESP_LOGD(TAG, "12. Write Channel 7 Settings");
 
   /* Change the CH8 Setup */
   /* Memory Map Position 0xA800 - 0xA805 */
@@ -1101,7 +1103,7 @@ void IQS7222CComponent::writeMM(bool stopOrRestart) {
   transferBytes[10] = CH8_REFMASK_0;
   transferBytes[11] = CH8_REFMASK_1;
   writeRandomBytes16(IQS7222C_MM_CHANNEL_SETUP_8, 12, transferBytes, RESTART);
-  ESP_LOGD(TAG, "\t\t13. Write Channel 8 Settings");
+  ESP_LOGD(TAG, "13. Write Channel 8 Settings");
 
   /* Change the CH9 Setup */
   /* Memory Map Position 0xA900 - 0xA905 */
@@ -1118,7 +1120,7 @@ void IQS7222CComponent::writeMM(bool stopOrRestart) {
   transferBytes[10] = CH9_REFMASK_0;
   transferBytes[11] = CH9_REFMASK_1;
   writeRandomBytes16(IQS7222C_MM_CHANNEL_SETUP_9, 12, transferBytes, RESTART);
-  ESP_LOGD(TAG, "\t\t14. Write Channel 9 Settings");
+  ESP_LOGD(TAG, "14. Write Channel 9 Settings");
 
   /* Change the Filter Betas */
   /* Memory Map Position 0xAA00 - 0xAA01 */
@@ -1127,7 +1129,7 @@ void IQS7222CComponent::writeMM(bool stopOrRestart) {
   transferBytes[2] = LTA_FAST_BETA_FILTER;
   transferBytes[3] = RESERVED_FILTER_0;
   writeRandomBytes16(IQS7222C_MM_FILTER_BETAS, 4, transferBytes, RESTART);
-  ESP_LOGD(TAG, "\t\t15. Write Filter Betas");
+  ESP_LOGD(TAG, "15. Write Filter Betas");
 
   /* Change the Slider/Wheel 0 Setup 0 & Delta Link */
   /* Memory Map Position 0xB000 - 0xB009 */
@@ -1152,7 +1154,7 @@ void IQS7222CComponent::writeMM(bool stopOrRestart) {
   transferBytes[18] = SLIDER0_DELTA3_0;
   transferBytes[19] = SLIDER0_DELTA3_1;
   writeRandomBytes16(IQS7222C_MM_SLIDER_SETUP_0, 20, transferBytes, RESTART);
-  ESP_LOGD(TAG, "\t\t16. Slider/Wheel 0 Settings");
+  ESP_LOGD(TAG, "16. Slider/Wheel 0 Settings");
 
   /* Change the Slider/Wheel 1 Setup 0 */
   /* Memory Map Position 0xB100 - 0xB105 */
@@ -1177,7 +1179,7 @@ void IQS7222CComponent::writeMM(bool stopOrRestart) {
   transferBytes[18] = SLIDER1_DELTA3_0;
   transferBytes[19] = SLIDER1_DELTA3_1;
   writeRandomBytes16(IQS7222C_MM_SLIDER_SETUP_1, 20, transferBytes, RESTART);
-  ESP_LOGD(TAG, "\t\t17. Slider/Wheel 1 Settings");
+  ESP_LOGD(TAG, "17. Slider/Wheel 1 Settings");
 
   /* Change the GPIO Settings */
   /* Memory Map Position 0xC000 - 0xC202 */
@@ -1200,7 +1202,7 @@ void IQS7222CComponent::writeMM(bool stopOrRestart) {
   transferBytes[16] = GPIO2_ENABLESTATUSLINK_0;
   transferBytes[17] = GPIO2_ENABLESTATUSLINK_1;
   writeRandomBytes16(IQS7222C_MM_GPIO_0_SETTINGS, 18, transferBytes, RESTART);
-  ESP_LOGD(TAG, "\t\t18. GPIO 0 Settings");
+  ESP_LOGD(TAG, "18. GPIO 0 Settings");
 
   /* Change the System Settings */
   /* Memory Map Position 0xD0 - 0xD9 */
@@ -1226,20 +1228,20 @@ void IQS7222CComponent::writeMM(bool stopOrRestart) {
   transferBytes[19] = POWER_ATI_EVENT_MASK;
   transferBytes[20] = I2CCOMMS_0;
   writeRandomBytes(IQS7222C_MM_CONTROL_SETTINGS, 21, transferBytes, stopOrRestart);
-  ESP_LOGD(TAG, "\t\t19. System Settings");
+  ESP_LOGD(TAG, "19. System Settings");
 
   /* Change the GPIO Override */
   /* Memory Map Position 0xDB - 0xDB */
   transferBytes[0] = GPIO_OVERRIDE;
   writeRandomBytes(IQS7222C_MM_GPIO_OVERRIDE, 1, transferBytes, stopOrRestart);
-  ESP_LOGD(TAG, "\t\t20. GPIO Override");
+  ESP_LOGD(TAG, "20. GPIO Override");
 
   /* Change the Comms timeout setting */
   /* Memory Map Position 0xDC - 0xDC */
   transferBytes[0] = COMMS_TIMEOUT_0;
   transferBytes[1] = COMMS_TIMEOUT_1;
   writeRandomBytes(IQS7222C_MM_COMMS_TIMEOUT, 2, transferBytes, stopOrRestart);
-  ESP_LOGD(TAG, "\t\t21. Communication Timeout");
+  ESP_LOGD(TAG, "21. Communication Timeout");
 }
 
 /*****************************************************************************/

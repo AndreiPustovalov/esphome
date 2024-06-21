@@ -16,7 +16,7 @@ namespace iqs7222c {
 
 struct IQS7222CStore {
   volatile bool touched{true};
-  volatile bool iqs7222c_deviceRDY{false};
+  volatile bool iqs7222c_deviceRDY{true};
   bool init{false};
   ISRInternalGPIOPin irq_pin;
   static void gpio_intr(IQS7222CStore *store);
