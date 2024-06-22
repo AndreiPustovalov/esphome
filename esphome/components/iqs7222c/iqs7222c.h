@@ -14,7 +14,7 @@
 namespace esphome {
 namespace iqs7222c {
 
-const uint8_t IQS7222C_MAX_BUTTONS = 8;
+const uint8_t IQS7222C_MAX_BUTTONS = 10;
 
 struct IQS7222CStore {
   volatile bool touched{true};
@@ -28,7 +28,7 @@ class IQS7222CChannel : public binary_sensor::BinarySensor {
  public:
   void set_channel(uint8_t channel) { channel_ = channel; }
   const uint8_t get_channel() const { return channel_; }
-  void publish(bool state) { this->publish_state(state); }
+  void publish(bool state);
 
  protected:
   uint8_t channel_{0};

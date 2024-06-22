@@ -16,6 +16,11 @@ namespace iqs7222c {
 
 static const char *const TAG = "iqs7222c";
 
+void IQS7222CChannel::publish(bool state) {
+  ESP_LOGD(TAG, "Channel %d state: %d", channel_, state);
+  this->publish_state(state);
+}
+
 void IQS7222CComponent::setup() {
   ESP_LOGCONFIG(TAG, "Setting up IQS7222C...");
 
@@ -105,6 +110,7 @@ void IQS7222CComponent::loop() {
   // force_I2C_communication();  // prompt the IQS7222C
   //  force_comms_and_reset(); // function to initialize a force communication window.
   if (new_data_available) {
+    ESP_LOGD(TAG, "New data available");
     //    check_power_mode();       // Verify if a power mode change occurred
     //    read_slider_coordinates();// Read the latest slider coordinates
     publish_channel_states_();  // Check if a channel state change has occurred
@@ -135,6 +141,10 @@ void IQS7222CComponent::publish_channel_states_() {
   // PROX is not interesting for us, we only use TOUCH
   for (auto btn = 0; btn < IQS7222C_MAX_BUTTONS; btn++) {
     bool touched = channel_touchState((iqs7222c_channel_e) btn);
+    if (touched) {
+      ESP_LOGD(TAG, "Button %d touched", btn);
+    }
+
     if (touched != (button_states[btn] == IQS7222C_CH_TOUCH)) {
       button_states[btn] = touched ? IQS7222C_CH_TOUCH : IQS7222C_CH_NONE;
       for (auto *channel : this->channels[btn]) {
