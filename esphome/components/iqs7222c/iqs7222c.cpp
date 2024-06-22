@@ -204,7 +204,7 @@ bool IQS7222CComponent::init(void) {
     /* Verifies product number to determine if the correct device is connected for
        this example */
     case IQS7222C_INIT_VERIFY_PRODUCT:
-      if (store_.iqs7222c_deviceRDY) {
+      if (this->getRDYStatus()) {
         ESP_LOGD(TAG, "IQS7222C_INIT_VERIFY_PRODUCT");
         prod_num = getProductNum(RESTART);
         ver_maj = getmajorVersion(RESTART);
@@ -224,7 +224,7 @@ bool IQS7222CComponent::init(void) {
 
     /* Verify if a reset has occurred */
     case IQS7222C_INIT_READ_RESET:
-      if (store_.iqs7222c_deviceRDY) {
+      if (this->getRDYStatus()) {
         ESP_LOGD(TAG, "IQS7222C_INIT_READ_RESET");
         updateInfoFlags(RESTART);
         if (checkReset()) {
@@ -239,7 +239,7 @@ bool IQS7222CComponent::init(void) {
 
     /* Perform SW Reset */
     case IQS7222C_INIT_CHIP_RESET:
-      if (store_.iqs7222c_deviceRDY) {
+      if (this->getRDYStatus()) {
         ESP_LOGD(TAG, "IQS7222C_INIT_CHIP_RESET");
 
         // Perform SW Reset
@@ -252,7 +252,7 @@ bool IQS7222CComponent::init(void) {
 
     /* Write all settings to IQS7222C from .h file */
     case IQS7222C_INIT_UPDATE_SETTINGS:
-      if (store_.iqs7222c_deviceRDY) {
+      if (this->getRDYStatus()) {
         ESP_LOGD(TAG, "IQS7222C_INIT_UPDATE_SETTINGS");
         writeMM(RESTART);
         iqs7222c_state.init_state = IQS7222C_INIT_ACK_RESET;
@@ -261,7 +261,7 @@ bool IQS7222CComponent::init(void) {
 
     /* Acknowledge that the device went through a reset */
     case IQS7222C_INIT_ACK_RESET:
-      if (store_.iqs7222c_deviceRDY) {
+      if (this->getRDYStatus()) {
         ESP_LOGD(TAG, "IQS7222C_INIT_ACK_RESET");
         acknowledgeReset(STOP);
         iqs7222c_state.init_state = IQS7222C_INIT_ATI;
@@ -270,7 +270,7 @@ bool IQS7222CComponent::init(void) {
 
     /* Run the ATI algorithm to recalibrate the device with newly added settings */
     case IQS7222C_INIT_ATI:
-      if (store_.iqs7222c_deviceRDY) {
+      if (this->getRDYStatus()) {
         ESP_LOGD(TAG, "IQS7222C_INIT_ATI");
         ReATI(STOP);
         iqs7222c_state.init_state = IQS7222C_INIT_WAIT_FOR_ATI;
@@ -280,7 +280,7 @@ bool IQS7222CComponent::init(void) {
 
     /* Read the ATI Active bit to see if the rest of the program can continue */
     case IQS7222C_INIT_WAIT_FOR_ATI:
-      if (store_.iqs7222c_deviceRDY) {
+      if (this->getRDYStatus()) {
         if (!readATIactive()) {
           ESP_LOGD(TAG, "DONE");
           iqs7222c_state.init_state = IQS7222C_INIT_READ_DATA;
@@ -290,7 +290,7 @@ bool IQS7222CComponent::init(void) {
 
     /* Read the latest data from the iqs7222c */
     case IQS7222C_INIT_READ_DATA:
-      if (store_.iqs7222c_deviceRDY) {
+      if (this->getRDYStatus()) {
         ESP_LOGD(TAG, "IQS7222C_INIT_READ_DATA");
         queueValueUpdates();
         iqs7222c_state.init_state = IQS7222C_INIT_ACTIVATE_EVENT_MODE;
@@ -300,7 +300,7 @@ bool IQS7222CComponent::init(void) {
 
     /* Turn on I2C event mode */
     case IQS7222C_INIT_ACTIVATE_EVENT_MODE:
-      if (store_.iqs7222c_deviceRDY) {
+      if (this->getRDYStatus()) {
         ESP_LOGD(TAG, "IQS7222C_INIT_ACTIVATE_EVENT_MODE");
         setEventMode(STOP);
         iqs7222c_state.init_state = IQS7222C_INIT_DONE;
@@ -309,7 +309,7 @@ bool IQS7222CComponent::init(void) {
 
     /* Turn on I2C Stream-In-Touch mode */
     case IQS7222C_INIT_ACTIVATE_STREAM_IN_TOUCH_MODE:
-      if (store_.iqs7222c_deviceRDY) {
+      if (this->getRDYStatus()) {
         ESP_LOGD(TAG, "IQS7222C_INIT_ACTIVATE_STREAM_IN_TOUCH_MODE");
         setStreamInTouchMode(STOP);
         iqs7222c_state.init_state = IQS7222C_INIT_DONE;
@@ -395,6 +395,7 @@ void IQS7222CComponent::run(void) {
 
       /* A reset did not occur, move to the run state and wait for new ready window */
       else {
+        ESP_LOGD(TAG, "New data available!\n");
         new_data_available = true; /* No reset, thus data is valid */
         iqs7222c_state.state = IQS7222C_STATE_RUN;
       }
@@ -424,6 +425,7 @@ void IQS7222CComponent::attach_interrupt_(InternalGPIOPin *irq_pin, esphome::gpi
   this->store_.touched = false;
   this->clearRDY();
   irq_pin->attach_interrupt(IQS7222CStore::gpio_intr, &this->store_, type);
+  this->interrupt_attached_ = true;
 }
 
 /**
@@ -462,7 +464,7 @@ void IQS7222CComponent::clearRDY(void) {
  *         - True when RDY line is LOW
  *         - False when RDY line is HIGH
  */
-bool IQS7222CComponent::getRDYStatus(void) { return store_.iqs7222c_deviceRDY; }
+bool IQS7222CComponent::getRDYStatus(void) { return store_.iqs7222c_deviceRDY || !this->interrupt_attached_; }
 
 /**
  * @name   queueValueUpdates

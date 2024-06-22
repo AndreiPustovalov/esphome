@@ -64,6 +64,7 @@ class IQS7222CComponent : public Component, public i2c::I2CDevice {
   // bool iqs7222c_deviceRDY{false};
   InternalGPIOPin *interrupt_pin_{};
   void attach_interrupt_(InternalGPIOPin *irq_pin, esphome::gpio::InterruptType type);
+  bool interrupt_attached_{false};
   IQS7222CStore store_;
 
   GPIOPin *mclr_pin_{nullptr};
