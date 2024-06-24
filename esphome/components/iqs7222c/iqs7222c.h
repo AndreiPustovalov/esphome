@@ -17,9 +17,8 @@ namespace iqs7222c {
 const uint8_t IQS7222C_MAX_BUTTONS = 10;
 
 struct IQS7222CStore {
-  volatile bool touched{true};
-  volatile bool iqs7222c_deviceRDY{false};
   bool init{false};
+  volatile bool iqs7222c_deviceRDY{false};
   ISRInternalGPIOPin irq_pin;
   static void gpio_intr(IQS7222CStore *store);
 };
@@ -49,10 +48,6 @@ class IQS7222CComponent : public Component, public i2c::I2CDevice {
       this->channels[channel->get_channel()].push_back(channel);
     };
   }
-  // void set_touch_threshold(uint8_t touch_threshold) { this->touch_threshold_ = touch_threshold; };
-  // void set_allow_multiple_touches(bool allow_multiple_touches) {
-  //   this->allow_multiple_touches_ = allow_multiple_touches ? 0x41 : 0x80;
-  // };
 
  protected:
   void publish_channel_states_();
@@ -64,7 +59,6 @@ class IQS7222CComponent : public Component, public i2c::I2CDevice {
   // bool iqs7222c_deviceRDY{false};
   InternalGPIOPin *interrupt_pin_{};
   void attach_interrupt_(InternalGPIOPin *irq_pin, esphome::gpio::InterruptType type);
-  bool interrupt_attached_{false};
   IQS7222CStore store_;
 
   GPIOPin *mclr_pin_{nullptr};
@@ -75,10 +69,9 @@ class IQS7222CComponent : public Component, public i2c::I2CDevice {
   // Public Variables
   IQS7222C_MEMORY_MAP IQSMemoryMap;
 
-  void hard_reset_();
-
   bool init(void);
   void run(void);
+  void run2(void);
 
   void queueValueUpdates(void);
   bool readATIactive(void);
@@ -105,6 +98,9 @@ class IQS7222CComponent : public Component, public i2c::I2CDevice {
   uint16_t sliderCoordinate(iqs7222c_slider_e slider);
 
   void force_I2C_communication(void);
+
+  void hard_reset_();
+  void hard_comms_request_();
 
  private:
   // Private Variables

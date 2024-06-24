@@ -1,7 +1,7 @@
 #include "esphome/core/log.h"
 #include "esphome/core/hal.h"
 #include "iqs7222c.h"
-#include "iqs7222c_buttoned_wheel.h"
+#include "iqs7222c_init_azoteq_ui.h"
 
 namespace esphome {
 namespace iqs7222c {
@@ -24,13 +24,15 @@ void IQS7222CChannel::publish(bool state) {
 void IQS7222CComponent::setup() {
   ESP_LOGCONFIG(TAG, "Setting up IQS7222C...");
 
-  // if (this->interrupt_pin_ != nullptr) {
-  //   this->interrupt_pin_->setup();
-  //   this->attach_interrupt_(this->interrupt_pin_, gpio::INTERRUPT_ANY_EDGE);
-  // }
+  if (this->interrupt_pin_ != nullptr) {
+    this->interrupt_pin_->pin_mode(gpio::FLAG_INPUT);
+    this->interrupt_pin_->setup();
+    this->attach_interrupt_(this->interrupt_pin_, gpio::INTERRUPT_ANY_EDGE);
+  }
+
   this->mclr_pin_->setup();
   this->hard_reset_();
-  store_.iqs7222c_deviceRDY = true;  // interrupts are not working yet
+  // store_.iqs7222c_deviceRDY = false;//true;  // interrupts are not working yet
   // force_I2C_communication();
 
   iqs7222c_state.state = IQS7222C_STATE_NONE;            // IQS7222C_STATE_START;
@@ -61,15 +63,6 @@ void IQS7222CComponent::setup() {
 
   //   // Speed up a bit
   //   this->write_byte(IQS7222C_STAND_BY_CONFIGURATION, 0x30);
-}
-
-void IQS7222CComponent::hard_reset_() {
-  this->mclr_pin_->digital_write(true);
-  delay(100);
-  this->mclr_pin_->digital_write(false);
-  delay(150);
-  this->mclr_pin_->digital_write(true);
-  delay(100);
 }
 
 void IQS7222CComponent::dump_config() {
@@ -105,12 +98,13 @@ void IQS7222CComponent::loop() {
     return;
   }
 
-  this->run();
+  // this->run();
 
   // force_I2C_communication();  // prompt the IQS7222C
-  //  force_comms_and_reset(); // function to initialize a force communication window.
+  //   force_comms_and_reset(); // function to initialize a force communication window.
+  /* Process data read from IQS7222C when new data is available (RDY Line Low) */
   if (new_data_available) {
-    ESP_LOGD(TAG, "New data available");
+    ESP_LOGD(TAG, "run() New data available");
     //    check_power_mode();       // Verify if a power mode change occurred
     //    read_slider_coordinates();// Read the latest slider coordinates
     publish_channel_states_();  // Check if a channel state change has occurred
@@ -119,20 +113,6 @@ void IQS7222CComponent::loop() {
 
     new_data_available = false;
   }
-
-  // this->read_register(IQS7222C_SENSOR_INPUT_STATUS, &touched, 1);
-
-  // if (touched) {
-  //   uint8_t data = 0;
-  //   this->read_register(IQS7222C_MAIN, &data, 1);
-  //   data = data & ~IQS7222C_MAIN_INT;
-
-  //   this->write_register(IQS7222C_MAIN, &data, 2);
-  // }
-
-  // for (auto *channel : this->channels_) {
-  //   channel->process(touched);
-  // }
 }
 
 void IQS7222CComponent::publish_channel_states_() {
@@ -152,6 +132,17 @@ void IQS7222CComponent::publish_channel_states_() {
       }
     }
   }
+}
+
+void IQS7222CComponent::run2() {
+  // switch (iqs7222c_state) {
+  //   case /* constant-expression */:
+  //     /* code */
+  //     break;
+
+  //   default:
+  //     break;
+  // }
 }
 
 /* Private Global Variables */
@@ -334,10 +325,11 @@ bool IQS7222CComponent::init(void) {
       this->clearRDY();
       // store_.iqs7222c_deviceRDY = false;
 
-      if (this->interrupt_pin_ != nullptr) {
-        this->interrupt_pin_->setup();
-        this->attach_interrupt_(this->interrupt_pin_, gpio::INTERRUPT_ANY_EDGE);
-      }
+      // if (this->interrupt_pin_ != nullptr) {
+      //   this->interrupt_pin_->pin_mode(gpio::FLAG_INPUT);
+      //   this->interrupt_pin_->setup();
+      //   this->attach_interrupt_(this->interrupt_pin_, gpio::INTERRUPT_ANY_EDGE);
+      // }
 
       return true;
       break;
@@ -424,18 +416,15 @@ void IQS7222CComponent::run(void) {
 }
 
 void IRAM_ATTR IQS7222CStore::gpio_intr(IQS7222CStore *store) {
-  store->touched = true;
-  store->iqs7222c_deviceRDY = !store->irq_pin.digital_read();
+  store->iqs7222c_deviceRDY = !store->irq_pin.digital_read();  // RDY active low
 }
 
 void IQS7222CComponent::attach_interrupt_(InternalGPIOPin *irq_pin, esphome::gpio::InterruptType type) {
   ESP_LOGD(TAG, "attach_interrupt_(RDY)");
   this->store_.irq_pin = irq_pin->to_isr();
   this->store_.init = true;
-  this->store_.touched = false;
   this->clearRDY();
   irq_pin->attach_interrupt(IQS7222CStore::gpio_intr, &this->store_, type);
-  this->interrupt_attached_ = true;
 }
 
 /**
@@ -474,7 +463,10 @@ void IQS7222CComponent::clearRDY(void) {
  *         - True when RDY line is LOW
  *         - False when RDY line is HIGH
  */
-bool IQS7222CComponent::getRDYStatus(void) { return store_.iqs7222c_deviceRDY || !this->interrupt_attached_; }
+bool IQS7222CComponent::getRDYStatus(void) {
+  return store_.iqs7222c_deviceRDY;
+  // || !this->store_.init;
+}
 
 /**
  * @name   queueValueUpdates
@@ -1554,6 +1546,30 @@ void IQS7222CComponent::force_I2C_communication(void) {
   //   // /* End the transmission, the user decides to STOP or RESTART. */
   //   // Wire.endTransmission(STOP);
   // }
+}
+
+void IQS7222CComponent::hard_reset_() {
+  this->mclr_pin_->digital_write(true);
+  delay(100);
+  this->mclr_pin_->digital_write(false);
+  delay(150);
+  this->mclr_pin_->digital_write(true);
+  delay(100);
+}
+
+void IQS7222CComponent::hard_comms_request_() {
+  if (!store_.iqs7222c_deviceRDY) {
+    // Knocking on the door to the IQS7222C.
+    // To avoid triggering own interrupt procedure interrupts are disabled in the block.
+    InterruptLock lock;
+    this->interrupt_pin_->pin_mode(gpio::FLAG_OUTPUT);
+    this->interrupt_pin_->setup();
+    this->interrupt_pin_->digital_write(false);
+    delay(5);
+    this->interrupt_pin_->digital_write(true);
+    this->interrupt_pin_->setup();
+    this->interrupt_pin_->pin_mode(gpio::FLAG_INPUT);
+  }
 }
 
 }  // namespace iqs7222c
