@@ -19,6 +19,7 @@ const uint8_t IQS7222C_MAX_BUTTONS = 10;
 struct IQS7222CStore {
   bool init{false};
   volatile bool iqs7222c_deviceRDY{false};
+  volatile uint32_t rdy_window_number{0};
   ISRInternalGPIOPin irq_pin;
   static void gpio_intr(IQS7222CStore *store);
 };

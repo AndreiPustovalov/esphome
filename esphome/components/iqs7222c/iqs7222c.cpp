@@ -82,10 +82,25 @@ void IQS7222CComponent::dump_config() {
   }
 }
 
+enum class State : uint8_t {
+  NONE,
+  POR,
+  ACK_R,
+  R_R,
+  WRITE_SET,
+  V0,
+  V1,
+  V2,
+
+  RUN
+};
+static uint32_t last_rdy_window_number = 0;
+static State state = State::NONE;
+
 void IQS7222CComponent::loop() {
   if (first_run) {
     first_run = false;
-    this->set_timeout(15 * 1000, [this]() {
+    this->set_timeout(1 * 1000, [this]() {
       iqs7222c_state.state = IQS7222C_STATE_START;
       ESP_LOGD(TAG, "First run execution. publishing buttons");
       for (auto btn = 0; btn < IQS7222C_MAX_BUTTONS; btn++) {
@@ -95,11 +110,17 @@ void IQS7222CComponent::loop() {
         }
       }
     });
+    this->set_timeout(12 * 1000, [this]() {
+      iqs7222c_state.state = IQS7222C_STATE_START;
+      ESP_LOGD(TAG, "First run execution. touch hard reset");
+      this->hard_reset_();
+      state = State::POR;
+    });
     return;
   }
 
-  // this->run();
-
+  //  this->run();
+  this->run2();
   // force_I2C_communication();  // prompt the IQS7222C
   //   force_comms_and_reset(); // function to initialize a force communication window.
   /* Process data read from IQS7222C when new data is available (RDY Line Low) */
@@ -135,14 +156,98 @@ void IQS7222CComponent::publish_channel_states_() {
 }
 
 void IQS7222CComponent::run2() {
-  // switch (iqs7222c_state) {
-  //   case /* constant-expression */:
-  //     /* code */
-  //     break;
+  static uint16_t prod_num{0};
+  static uint8_t ver_maj{0}, ver_min{0};
+  if (!this->getRDYStatus())
+    return;
 
-  //   default:
-  //     break;
-  // }
+  auto same_window = last_rdy_window_number == store_.rdy_window_number;
+
+  if (!same_window) {
+    last_rdy_window_number = store_.rdy_window_number;
+    ESP_LOGD(TAG, "RDY %d, State %u", store_.rdy_window_number, (uint8_t) state);
+  }
+  switch (state) {
+    case State::NONE:
+      break;
+    case State::POR: {
+      updateInfoFlags(RESTART);
+      if (checkReset()) {
+        ESP_LOGD(TAG, "Reset event occurred.");
+        state = State::ACK_R;
+      } else {
+        ESP_LOGD(TAG, " No Reset Event Detected - Request SW Reset");
+        state = State::R_R;
+      }
+      break;
+
+      case State::R_R: {
+        SW_Reset(STOP);
+        ESP_LOGD(TAG, "Software Reset requested.");
+        delay(100);
+        state = State::V0;
+      } break;
+
+      case State::ACK_R: {
+        ESP_LOGD(TAG, "ACK_RESET.");
+        acknowledgeReset(STOP);
+        state = State::WRITE_SET;
+      } break;
+
+      case State::WRITE_SET: {
+        ESP_LOGD(TAG, "Write MM.");
+        writeMM(STOP);
+        state = State::V0;
+      } break;
+
+      case State::V0: {
+        uint8_t transferBytes[6];    // A temporary array to hold the byte to be transferred.
+        uint8_t prodNumLow = 0;      // Temporary storage for the counts low byte.
+        uint8_t prodNumHigh = 0;     // Temporary storage for the counts high byte.
+        uint16_t prodNumReturn = 0;  // The 16-bit return value.
+
+        /* Read the Device info from the IQS7222C. */
+        readRandomBytes(IQS7222C_MM_PROD_NUM, 6, transferBytes, STOP);
+
+        ESP_LOGD(TAG, "Product info data: 0x%02x, 0x%02x, 0x%02x, 0x%02x, 0x%02x, 0x%02x", transferBytes[0],
+                 transferBytes[1], transferBytes[2], transferBytes[3], transferBytes[4], transferBytes[5]);
+
+        /* Construct the 16-bit return value. */
+        prodNumLow = transferBytes[0];
+        prodNumHigh = transferBytes[1];
+        prodNumReturn = (uint16_t) (prodNumLow);
+        prodNumReturn |= (uint16_t) (prodNumHigh << 8);
+
+        state = State::RUN;
+      } break;
+
+        //        prod_num = getProductNum(RESTART);
+        // ver_maj = getmajorVersion(RESTART);
+        // ver_min = getminorVersion(STOP);
+        //        ESP_LOGD(TAG, "1Product number is: %d v %d.%d", prod_num, ver_maj, ver_min);
+
+        //        state = State::V0;
+
+        // ver_maj = getmajorVersion(STOP);
+        // // ver_min = getminorVersion(STOP);
+        // ESP_LOGD(TAG, "2Product number is: %d v %d.%d", prod_num, ver_maj, ver_min);
+
+        //      state = State::V1;
+        //      break;
+      case State::V1:
+        ver_min = getminorVersion(STOP);
+        ESP_LOGD(TAG, "3Product number is: %d v %d.%d", prod_num, ver_maj, ver_min);
+
+        state = State::RUN;
+        break;
+
+      case State::RUN:
+        if (same_window) {
+          break;
+        }
+        break;
+    }
+  }
 }
 
 /* Private Global Variables */
@@ -416,13 +521,19 @@ void IQS7222CComponent::run(void) {
 }
 
 void IRAM_ATTR IQS7222CStore::gpio_intr(IQS7222CStore *store) {
-  store->iqs7222c_deviceRDY = !store->irq_pin.digital_read();  // RDY active low
+  bool old = store->iqs7222c_deviceRDY;
+  bool current = !store->irq_pin.digital_read();  // RDY active low
+  store->iqs7222c_deviceRDY = current;
+  if (old != current) {
+    store->rdy_window_number++;
+  }
 }
 
 void IQS7222CComponent::attach_interrupt_(InternalGPIOPin *irq_pin, esphome::gpio::InterruptType type) {
   ESP_LOGD(TAG, "attach_interrupt_(RDY)");
   this->store_.irq_pin = irq_pin->to_isr();
   this->store_.init = true;
+  this->store_.rdy_window_number = 0;
   this->clearRDY();
   irq_pin->attach_interrupt(IQS7222CStore::gpio_intr, &this->store_, type);
 }
@@ -745,6 +856,7 @@ void IQS7222CComponent::updateInfoFlags(bool stopOrRestart) {
   // Assign the info flags to the local memory map.
   IQSMemoryMap.SYSTEM_STATUS[0] = transferBytes[0];
   IQSMemoryMap.SYSTEM_STATUS[1] = transferBytes[1];
+  ESP_LOGD(TAG, "updateInfoFlags: 0x%02X, 0x%02X", transferBytes[0], transferBytes[1]);
 }
 
 /**
@@ -1360,7 +1472,11 @@ void IQS7222CComponent::writeMM(bool stopOrRestart) {
  */
 void IQS7222CComponent::readRandomBytes(uint8_t memoryAddress, uint8_t numBytes, uint8_t bytesArray[],
                                         bool stopOrRestart) {
-  this->read_register(memoryAddress, bytesArray, numBytes, stopOrRestart);
+  i2c::ErrorCode ret = this->read_register(memoryAddress, bytesArray, numBytes, stopOrRestart);
+  if (ret != i2c::ErrorCode::NO_ERROR) {
+    ESP_LOGE(TAG, "Error reading bytes from memory address %02X, error %d", memoryAddress, (int) ret);
+  }
+
   // uint8_t i = 0;  // A simple counter to assist with loading bytes into the user-supplied array.
 
   // // Select the device with the address of "_deviceAddress" and start communication.
