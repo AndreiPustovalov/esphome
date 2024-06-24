@@ -35,8 +35,8 @@ void IQS7222CComponent::setup() {
   // store_.iqs7222c_deviceRDY = false;//true;  // interrupts are not working yet
   // force_I2C_communication();
 
-  iqs7222c_state.state = IQS7222C_STATE_NONE;            // IQS7222C_STATE_START;
-  iqs7222c_state.init_state = IQS7222C_INIT_READ_RESET;  //  IQS7222C_INIT_VERIFY_PRODUCT;
+  iqs7222c_state.state = IQS7222C_STATE_NONE;                // IQS7222C_STATE_START;
+  iqs7222c_state.init_state = IQS7222C_INIT_VERIFY_PRODUCT;  //  IQS7222C_INIT_VERIFY_PRODUCT;
 
   //   // Check if IQS7222C is actually connected
   //   this->read_byte(IQS7222C_PRODUCT_ID, &this->iqs7222c_product_id_);
@@ -119,10 +119,10 @@ void IQS7222CComponent::loop() {
     return;
   }
 
-  //  this->run();
-  this->run2();
-  // force_I2C_communication();  // prompt the IQS7222C
-  //   force_comms_and_reset(); // function to initialize a force communication window.
+  this->run();
+  // this->run2();
+  //  force_I2C_communication();  // prompt the IQS7222C
+  //    force_comms_and_reset(); // function to initialize a force communication window.
   /* Process data read from IQS7222C when new data is available (RDY Line Low) */
   if (new_data_available) {
     ESP_LOGD(TAG, "run() New data available");
@@ -201,6 +201,7 @@ void IQS7222CComponent::run2() {
       } break;
 
       case State::V0: {
+        ESP_LOGD(TAG, "Product info data:");
         uint8_t transferBytes[6];    // A temporary array to hold the byte to be transferred.
         uint8_t prodNumLow = 0;      // Temporary storage for the counts low byte.
         uint8_t prodNumHigh = 0;     // Temporary storage for the counts high byte.
@@ -315,10 +316,10 @@ bool IQS7222CComponent::init(void) {
         prod_num = getProductNum(RESTART);
         ver_maj = getmajorVersion(RESTART);
         ver_min = getminorVersion(STOP);
-        ESP_LOGD(TAG, "Product number is: %d v %d.%d", prod_num, ver_maj, ver_min);
+        ESP_LOGD(TAG, "Product number is: 0x%04x v 0x%02x.%02x", prod_num, ver_maj, ver_min);
         if (prod_num == IQS7222C_PRODUCT_NUM) {
           ESP_LOGD(TAG, "IQS7222C Release UI Confirmed!");
-          iqs7222c_state.init_state = IQS7222C_INIT_UPDATE_SETTINGS;
+          iqs7222c_state.init_state = IQS7222C_INIT_READ_RESET;
         } else {
           ESP_LOGD(TAG, "Device is not a IQS7222C!");
           iqs7222c_state.init_state = IQS7222C_INIT_NONE;
@@ -335,7 +336,7 @@ bool IQS7222CComponent::init(void) {
         updateInfoFlags(RESTART);
         if (checkReset()) {
           ESP_LOGD(TAG, "Reset event occurred.");
-          iqs7222c_state.init_state = IQS7222C_INIT_VERIFY_PRODUCT;
+          iqs7222c_state.init_state = IQS7222C_INIT_ACK_RESET;
         } else {
           ESP_LOGD(TAG, " No Reset Event Detected - Request SW Reset");
           iqs7222c_state.init_state = IQS7222C_INIT_CHIP_RESET;
@@ -356,20 +357,20 @@ bool IQS7222CComponent::init(void) {
       }
       break;
 
-    /* Write all settings to IQS7222C from .h file */
-    case IQS7222C_INIT_UPDATE_SETTINGS:
-      if (this->getRDYStatus()) {
-        ESP_LOGD(TAG, "IQS7222C_INIT_UPDATE_SETTINGS");
-        writeMM(RESTART);
-        iqs7222c_state.init_state = IQS7222C_INIT_ACK_RESET;
-      }
-      break;
-
     /* Acknowledge that the device went through a reset */
     case IQS7222C_INIT_ACK_RESET:
       if (this->getRDYStatus()) {
         ESP_LOGD(TAG, "IQS7222C_INIT_ACK_RESET");
         acknowledgeReset(STOP);
+        iqs7222c_state.init_state = IQS7222C_INIT_UPDATE_SETTINGS;
+      }
+      break;
+
+    /* Write all settings to IQS7222C from .h file */
+    case IQS7222C_INIT_UPDATE_SETTINGS:
+      if (this->getRDYStatus()) {
+        ESP_LOGD(TAG, "IQS7222C_INIT_UPDATE_SETTINGS");
+        writeMM(RESTART);
         iqs7222c_state.init_state = IQS7222C_INIT_ATI;
       }
       break;
@@ -387,6 +388,7 @@ bool IQS7222CComponent::init(void) {
     /* Read the ATI Active bit to see if the rest of the program can continue */
     case IQS7222C_INIT_WAIT_FOR_ATI:
       if (this->getRDYStatus()) {
+        ESP_LOGD(TAG, "IQS7222C_INIT_WAIT_FOR_ATI");
         if (!readATIactive()) {
           ESP_LOGD(TAG, "DONE");
           iqs7222c_state.init_state = IQS7222C_INIT_READ_DATA;
@@ -477,13 +479,14 @@ void IQS7222CComponent::run(void) {
     /* Perform the initialization routine on the IQS7222C */
     case IQS7222C_STATE_INIT:
       if (init()) {
-        ESP_LOGD(TAG, "IQS7222C Initialization complete!\n");
+        ESP_LOGD(TAG, "IQS7222C Initialization complete!");
         iqs7222c_state.state = IQS7222C_STATE_RUN;
       }
       break;
 
     /* Send an 12C software reset in the next rdy window */
     case IQS7222C_STATE_SW_RESET:
+      ESP_LOGD(TAG, "IQS7222C IQS7222C_STATE_SW_RESET!");
       if (store_.iqs7222c_deviceRDY) {
         SW_Reset(STOP);
         iqs7222c_state.state = IQS7222C_STATE_RUN;
@@ -494,7 +497,7 @@ void IQS7222CComponent::run(void) {
        for data to be valid */
     case IQS7222C_STATE_CHECK_RESET:
       if (checkReset()) {
-        ESP_LOGD(TAG, "Reset Occurred!\n");
+        ESP_LOGD(TAG, "IQS7222C_STATE_CHECK_RESET Reset Occurred!");
         new_data_available = false;
         iqs7222c_state.state = IQS7222C_STATE_START;
         iqs7222c_state.init_state = IQS7222C_INIT_VERIFY_PRODUCT;
@@ -502,7 +505,7 @@ void IQS7222CComponent::run(void) {
 
       /* A reset did not occur, move to the run state and wait for new ready window */
       else {
-        ESP_LOGD(TAG, "New data available!\n");
+        ESP_LOGD(TAG, "New data available!");
         new_data_available = true; /* No reset, thus data is valid */
         iqs7222c_state.state = IQS7222C_STATE_RUN;
       }
@@ -511,6 +514,7 @@ void IQS7222CComponent::run(void) {
     /* If a RDY Window is open, read the latest values from the IQS7222C */
     case IQS7222C_STATE_RUN:
       if (store_.iqs7222c_deviceRDY) {
+        ESP_LOGD(TAG, "IQS7222C IQS7222C_STATE_RUN");
         queueValueUpdates();
         this->clearRDY();
         new_data_available = false;
@@ -1666,11 +1670,11 @@ void IQS7222CComponent::force_I2C_communication(void) {
 
 void IQS7222CComponent::hard_reset_() {
   this->mclr_pin_->digital_write(true);
-  delay(100);
+  delay(10);
   this->mclr_pin_->digital_write(false);
-  delay(150);
+  delay(250);
   this->mclr_pin_->digital_write(true);
-  delay(100);
+  delay(10);
 }
 
 void IQS7222CComponent::hard_comms_request_() {
