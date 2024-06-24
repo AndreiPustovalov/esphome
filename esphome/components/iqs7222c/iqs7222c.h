@@ -9,6 +9,8 @@
 #include "iqs7222c_defines.h"
 #include "iqs7222c_registers.h"
 
+#include "iqs_7222c_register.h"
+
 #include <vector>
 
 namespace esphome {
@@ -76,7 +78,7 @@ class IQS7222CComponent : public Component, public i2c::I2CDevice {
 
   void queueValueUpdates(void);
   bool readATIactive(void);
-  uint16_t getProductNum(bool stopOrRestart);
+  uint16_t getProductNum(bool stopOrRestart, uint8_t &major, uint8_t &minor);
   uint8_t getmajorVersion(bool stopOrRestart);
   uint8_t getminorVersion(bool stopOrRestart);
   void acknowledgeReset(bool stopOrRestart);
@@ -102,6 +104,37 @@ class IQS7222CComponent : public Component, public i2c::I2CDevice {
 
   void hard_reset_();
   void hard_comms_request_();
+
+  /////////////////////////////////////////////////////////
+
+  void iqs_7222c_init(void);
+
+  void iqs_7222c_set_rdy_state(bool active);
+  bool iqs_7222c_get_rdy_pin_active(void);
+
+  void iqs_7222c_read_version(void);
+  void iqs_7222c_read_state(iqs_7222c_states_t *state);
+  void iqs_7222c_read_touch_event(void);
+
+  /////////////////
+
+  void iqs_7222c_delay(uint32_t ms);
+
+  void iqs_7222c_hal_init(void);
+
+  uint8_t iqs_7222c_rdy_read(void);
+
+  void iqs_7222c_mclr_set(void);
+  void iqs_7222c_mclr_clear(void);
+
+  void iqs_7222c_i2c_stop(void);
+
+  void iqs_7222c_i2c_write(uint8_t *data, uint16_t data_len);
+  void iqs_7222c_i2c_write_cont(uint8_t *data, uint16_t data_len);
+  void iqs_7222c_i2c_read(uint8_t *data, uint16_t data_len);
+  void iqs_7222c_i2c_read_registers(uint8_t *addr, uint16_t addr_size, uint8_t *data, uint16_t data_len);
+
+  //////////////////
 
  private:
   // Private Variables
