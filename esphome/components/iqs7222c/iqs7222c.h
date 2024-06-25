@@ -6,7 +6,7 @@
 #include "esphome/components/output/binary_output.h"
 #include "esphome/components/binary_sensor/binary_sensor.h"
 
-#include "iqs_7222c_register.h"
+#include "iqs7222c_registers.h"
 
 #include <vector>
 

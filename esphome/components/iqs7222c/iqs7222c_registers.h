@@ -1,5 +1,8 @@
-#ifndef __IQS_7222C_REGISTER_H
-#define __IQS_7222C_REGISTER_H
+#pragma once
+#include <cinttypes>
+
+namespace esphome {
+namespace iqs7222c {
 
 #define IQS_7222C_VERSION_REG 0x0
 #define IQS_7222C_SYSTEM_STATES_REG 0x10
@@ -125,4 +128,5 @@ typedef struct iqs_7222c_states {
   iqs_7222c_touch_event_t touch;
 } iqs_7222c_states_t;
 
-#endif
+}  // namespace iqs7222c
+}  // namespace esphome
