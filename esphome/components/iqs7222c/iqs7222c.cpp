@@ -6,6 +6,8 @@
 namespace esphome {
 namespace iqs7222c {
 
+bool testing_mode = false;
+
 // Public Global Definitions
 /* For use with Wire.h library. True argument with some functions closes the
    I2C communication window.*/
@@ -296,8 +298,6 @@ static uint8_t soft_reset[3] = {IQS_7222C_PMU_SYS_SETTING, 0x02, 0x00};
 
 iqs_7222c_touch_event_t iqs_7222c_touch_evt;
 iqs_7222c_states_t iqs_7222c_states;
-
-bool testing_mode = false;
 
 void IQS7222CComponent::iqs_7222c_init(void) {
   ESP_LOGD(TAG, "iqs_7222c_init");
@@ -656,8 +656,17 @@ void IQS7222CComponent::setup() {
 
   //   // Speed up a bit
   //   this->write_byte(IQS7222C_STAND_BY_CONFIGURATION, 0x30);
+  this->set_timeout(1 * 1000, [this]() {
+    ESP_LOGD(TAG, "First run execution. publishing buttons");
+    for (auto btn = 0; btn < IQS7222C_MAX_BUTTONS; btn++) {
+      for (auto *channel : this->channels[btn]) {
+        ESP_LOGD(TAG, "Button %d", btn);
+        channel->publish_state(false);
+      }
+    }
+  });
 
-  this->set_timeout(20 * 1000, [this]() {
+  this->set_timeout(5 * 1000, [this]() {
     ESP_LOGD(TAG, "First run execution. touch hard reset");
     // this->hard_reset_();
     // state = State::POR;
@@ -743,20 +752,6 @@ void IQS7222CComponent::emulate_touch(uint8_t btn) {
 }
 
 void IQS7222CComponent::loop() {
-  if (first_run) {
-    first_run = false;
-    this->set_timeout(1 * 1000, [this]() {
-      ESP_LOGD(TAG, "First run execution. publishing buttons");
-      for (auto btn = 0; btn < IQS7222C_MAX_BUTTONS; btn++) {
-        for (auto *channel : this->channels[btn]) {
-          ESP_LOGD(TAG, "Button %d", btn);
-          channel->publish_state(false);
-        }
-      }
-    });
-    return;
-  }
-
   // static iqs_7222c_states_t states{0};
   static uint16_t old_status{0xffff};
   static uint16_t old_touch_status{0xffff};
