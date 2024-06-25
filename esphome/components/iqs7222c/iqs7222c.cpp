@@ -297,10 +297,14 @@ static uint8_t soft_reset[3] = {IQS_7222C_PMU_SYS_SETTING, 0x02, 0x00};
 iqs_7222c_touch_event_t iqs_7222c_touch_evt;
 iqs_7222c_states_t iqs_7222c_states;
 
+bool testing_mode = false;
+
 void IQS7222CComponent::iqs_7222c_init(void) {
   ESP_LOGD(TAG, "iqs_7222c_init");
 
   iqs_7222c_touch_evt.value = 0;
+  if (testing_mode)
+    return;
 
   iqs_7222c_hal_init();
 
@@ -665,6 +669,9 @@ void IQS7222CComponent::setup() {
 void IQS7222CComponent::dump_config() {
   ESP_LOGCONFIG(TAG, "IQS7222C:");
   LOG_I2C_DEVICE(this);
+  LOG_PIN("  MCLR Pin: ", this->mclr_pin_);
+  LOG_PIN("  RDY Pin: ", this->interrupt_pin_);
+
   // ESP_LOGCONFIG(TAG, "  Product ID: 0x%x", this->iqs7222c_product_id_);
   // ESP_LOGCONFIG(TAG, "  Manufacture ID: 0x%x", this->iqs7222c_manufacture_id_);
   // ESP_LOGCONFIG(TAG, "  Revision ID: 0x%x", this->iqs7222c_revision_);
@@ -719,6 +726,22 @@ static State state = State::NONE;
 
 */
 
+void IQS7222CComponent::emulate_touch(uint8_t btn) {
+  if (btn >= IQS7222C_MAX_BUTTONS)
+    return;
+  for (auto *channel : this->channels[btn]) {
+    ESP_LOGD(TAG, "Emulate Button %d", btn);
+    channel->publish_state(true);
+  }
+
+  this->set_timeout(50, [this, btn]() {
+    for (auto *channel : this->channels[btn]) {
+      ESP_LOGD(TAG, "Emulate Button %d", btn);
+      channel->publish_state(false);
+    }
+  });
+}
+
 void IQS7222CComponent::loop() {
   if (first_run) {
     first_run = false;
@@ -738,19 +761,19 @@ void IQS7222CComponent::loop() {
   static uint16_t old_status{0xffff};
   static uint16_t old_touch_status{0xffff};
 
-  if (iqs7222c_state.state != IQS7222C_STATE_NONE) {
+  if (testing_mode || iqs7222c_state.state != IQS7222C_STATE_NONE) {
     // while (iqs_7222c_rdy_read() != 0)
-    if (iqs_7222c_rdy_read() == 0) {  // RDY low
-      iqs_7222c_read_state(&iqs_7222c_states);
+    if (testing_mode || iqs_7222c_rdy_read() == 0) {  // RDY low
+      if (!testing_mode) {
+        iqs_7222c_read_state(&iqs_7222c_states);
+      }
 
       if (old_touch_status != iqs_7222c_states.touch.value) {
         ESP_LOGD(TAG, "Touch event: %d", iqs_7222c_states.touch.value);
-        old_touch_status = iqs_7222c_states.touch.value;
         new_data_available = true;
       }
       if (old_status != iqs_7222c_states.status.value) {
         ESP_LOGD(TAG, "Status event: %d", iqs_7222c_states.status.value);
-        old_status = iqs_7222c_states.status.value;
       }
     }
 
@@ -788,6 +811,8 @@ void IQS7222CComponent::loop() {
         }
       }
     }
+    old_touch_status = iqs_7222c_states.touch.value;
+    old_status = iqs_7222c_states.status.value;
   }
 }
 

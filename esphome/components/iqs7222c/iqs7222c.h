@@ -134,6 +134,9 @@ class IQS7222CComponent : public Component, public i2c::I2CDevice {
   void iqs_7222c_i2c_read(uint8_t *data, uint16_t data_len);
   void iqs_7222c_i2c_read_registers(uint8_t *addr, uint16_t addr_size, uint8_t *data, uint16_t data_len);
 
+ public:
+  void emulate_touch(uint8_t btn);
+
   //////////////////
 
  private:
