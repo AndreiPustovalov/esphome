@@ -427,7 +427,6 @@ void IQS7222CComponent::loop() {
       }
     } break;
     default:
-      ESP_LOGE(TAG, "Unknown state: %d", this->state_);
       this->mark_failed();
   }
 }
@@ -489,7 +488,7 @@ void IQS7222CComponent::report_state_() {
         ESP_LOGD(TAG, "State::RUNTIME");
         break;
       default:
-        ESP_LOGE(TAG, "Unknown state: %d", this->state_);
+        ESP_LOGE(TAG, "Unknown state: %u", (uint8_t) this->state_);
     }
   }
 }

@@ -19,7 +19,7 @@ const uint16_t IQS7222C_PRODUCT_NR = 863;
 class IQS7222CButton : public binary_sensor::BinarySensor {
  public:
   void set_channel(uint8_t channel) { this->channel_ = channel; }
-  const uint8_t get_channel() const { return this->channel_; }
+  uint8_t get_channel() const { return this->channel_; }
   void publish(bool state);
 
  protected:
