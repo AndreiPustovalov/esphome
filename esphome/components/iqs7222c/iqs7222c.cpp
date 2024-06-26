@@ -286,17 +286,155 @@ static uint8_t pmu_sys_setting[22] = {(IQS_7222C_PMU_SYS_SETTING),
 
 static uint8_t soft_reset[3] = {IQS_7222C_PMU_SYS_SETTING, 0x02, 0x00};
 
+/***********************************************************************************/
+
 void IRAM_ATTR IQS7222CStore::gpio_intr(IQS7222CStore *store) {
   store->deviceRDY = !store->rdy_pin.digital_read();  // RDY active low
 }
 
+/***********************************************************************************/
+
+void IQS7222CButton::publish(bool state) {
+  ESP_LOGD(TAG, "Button %d state: %d", channel_, state);
+  this->publish_state(state);
+}
+
+/***********************************************************************************/
+
+void IQS7222CComponent::setup() {
+  ESP_LOGCONFIG(TAG, "Setting up IQS7222C...");
+
+  // Setup pin RDY. Input, Active low.
+  if (this->rdy_pin_ != nullptr) {
+    this->rdy_pin_->pin_mode(gpio::FLAG_INPUT);
+    this->rdy_pin_->setup();
+    // this->attach_interrupt_(this->rdy_pin_, gpio::INTERRUPT_ANY_EDGE);
+  }
+
+  // Setup reset pin MCLR. Output, Active low.
+  this->mclr_pin_->pin_mode(gpio::FLAG_OUTPUT | gpio::FLAG_PULLUP);
+  this->mclr_pin_->setup();
+
+  // Initialize IQS7222C with a delay (for remote debugging)
+  if (this->init_delay_ms_ > 0) {
+    this->set_timeout(this->init_delay_ms_, [this]() { iqs_7222c_init(); });
+  } else {
+    iqs_7222c_init();
+  }
+}
+
+void IQS7222CComponent::dump_config() {
+  ESP_LOGCONFIG(TAG, "IQS7222C:");
+  LOG_I2C_DEVICE(this);
+  LOG_PIN("  MCLR Pin: ", this->mclr_pin_);
+  LOG_PIN("  RDY Pin: ", this->rdy_pin_);
+
+  // ESP_LOGCONFIG(TAG, "  Product ID: 0x%x", this->iqs7222c_product_id_);
+  // ESP_LOGCONFIG(TAG, "  Manufacture ID: 0x%x", this->iqs7222c_manufacture_id_);
+  // ESP_LOGCONFIG(TAG, "  Revision ID: 0x%x", this->iqs7222c_revision_);
+
+  switch (this->error_code_) {
+    case COMMUNICATION_FAILED:
+      ESP_LOGE(TAG, "Product ID or Manufacture ID of the connected device does not match a known IQS7222C.");
+      break;
+    case NONE:
+    default:
+      break;
+  }
+}
+
+void IQS7222CComponent::loop() {
+  bool new_touch_data_available{false};
+
+  if (this->test_mode_ || this->device_initialized_) {
+    // while (iqs_7222c_rdy_read() != 0) // wait for RDY window
+
+    if (this->test_mode_ || iqs_7222c_rdy_read() == 0) {  // RDY low = Window opened
+
+      if (!this->test_mode_) {
+        iqs_7222c_read_state(&iqs_7222c_states);
+      }
+
+      if (iqs_7222c_states_old.touch.value != iqs_7222c_states.touch.value) {
+        ESP_LOGD(TAG, "Touch event: %d", iqs_7222c_states.touch.value);
+        new_touch_data_available = true;
+      }
+      if (iqs_7222c_states_old.status.value != iqs_7222c_states.status.value) {
+        ESP_LOGD(TAG, "Status event: %d", iqs_7222c_states.status.value);
+      }
+    }
+
+    if (new_touch_data_available) {
+      ESP_LOGD(TAG, "New touch data available");
+
+      new_touch_data_available = false;
+
+      for (auto btn = 0; btn < IQS7222C_MAX_BUTTONS; btn++) {
+        uint16_t touch_bit = (uint16_t) 1 << btn;
+        bool touched_now = (iqs_7222c_states.touch.value & touch_bit) != 0;
+        bool touched_before = (iqs_7222c_states_old.touch.value & touch_bit) != 0;
+
+        if (touched_now && !touched_before) {
+          ESP_LOGD(TAG, "Button %d touched", btn);
+        } else if (touched_before && !touched_now) {
+          ESP_LOGD(TAG, "Button %d released", btn);
+        }
+
+        if (touched_now != touched_before) {
+          for (auto *channel : this->buttons[btn]) {
+            channel->publish_state(touched_now);
+          }
+        }
+      }
+    }
+    iqs_7222c_states_old.touch.value = iqs_7222c_states.touch.value;
+    iqs_7222c_states_old.status.value = iqs_7222c_states.status.value;
+  }
+}
+
+void IQS7222CComponent::register_button(IQS7222CButton *btn) {
+  if (btn->get_channel() < IQS7222C_MAX_BUTTONS) {
+    this->buttons[btn->get_channel()].push_back(btn);
+  };
+}
+
+void IQS7222CComponent::emulate_touch(uint8_t btn) {
+  if (btn >= IQS7222C_MAX_BUTTONS)
+    return;
+
+  for (auto *channel : this->buttons[btn]) {
+    ESP_LOGD(TAG, "Emulate: Button %d touched", btn);
+    channel->publish_state(true);
+  }
+
+  this->set_timeout(50, [this, btn]() {
+    for (auto *channel : this->buttons[btn]) {
+      ESP_LOGD(TAG, "Emulate: Button %d released", btn);
+      channel->publish_state(false);
+    }
+  });
+}
+
+void IQS7222CComponent::attach_interrupt_(InternalGPIOPin *irq_pin, esphome::gpio::InterruptType type) {
+  this->store_.rdy_pin = irq_pin->to_isr();
+  this->clear_rdy_interrupt_();
+  irq_pin->attach_interrupt(IQS7222CStore::gpio_intr, &this->store_, type);
+}
+
+void IQS7222CComponent::clear_rdy_interrupt_(void) { this->store_.deviceRDY = false; }
+
+bool IQS7222CComponent::get_rdy_interrupt_(void) { return this->store_.deviceRDY; }
+
+/***********************************************************************************/
+
+#define WAIT_FOR_RDY_WINDOW() (while (iqs_7222c_rdy_read() != 0);)
+
 void IQS7222CComponent::iqs_7222c_init(void) {
   ESP_LOGVV(TAG, "iqs_7222c_init");
 
-  iqs_7222c_touch_evt.value = 0;
   if (this->test_mode_) {
     ESP_LOGV(TAG, "Test mode enabled");
-    iqs_7222c_initialized = true;
+    device_initialized_ = true;
     return;
   }
 
@@ -309,6 +447,7 @@ void IQS7222CComponent::iqs_7222c_init(void) {
 
   iqs_7222c_i2c_stop();
   iqs_7222c_delay(20);
+
   while (iqs_7222c_rdy_read() != 0)
     ;
   iqs_7222c_i2c_write((uint8_t *) &soft_reset, sizeof(soft_reset));
@@ -317,6 +456,13 @@ void IQS7222CComponent::iqs_7222c_init(void) {
 
   while (iqs_7222c_rdy_read() != 0)
     ;
+  iqs_7222c_read_version();
+  iqs_7222c_i2c_stop();
+  iqs_7222c_delay(20);
+
+  while (iqs_7222c_rdy_read() != 0)
+    ;
+
   iqs_7222c_i2c_write_cont((uint8_t *) &cycle_setup_0, sizeof(cycle_setup_0));
   iqs_7222c_i2c_write_cont((uint8_t *) &cycle_setup_1, sizeof(cycle_setup_1));
   iqs_7222c_i2c_write_cont((uint8_t *) &cycle_setup_2, sizeof(cycle_setup_2));
@@ -335,6 +481,7 @@ void IQS7222CComponent::iqs_7222c_init(void) {
   iqs_7222c_i2c_write_cont((uint8_t *) &button_setup_9, sizeof(button_setup_9));
   // // iqs_7222c_i2c_write_cont((uint8_t *)&button_stup_0_to_4, sizeof(button_stup_0_to_4));
   // // iqs_7222c_i2c_write_cont((uint8_t *)&button_stup_5_to_9, sizeof(button_stup_5_to_9));
+
   // // iqs_7222c_i2c_write_cont((uint8_t *)&ch_setup_0_9, sizeof(ch_setup_0_9));
   iqs_7222c_i2c_write_cont((uint8_t *) &ch_setup_0, sizeof(ch_setup_0));
   iqs_7222c_i2c_write_cont((uint8_t *) &ch_setup_1, sizeof(ch_setup_1));
@@ -369,6 +516,7 @@ void IQS7222CComponent::iqs_7222c_init(void) {
   ch_setup_reg = 0x00A1;
   iqs_7222c_i2c_stop();
   iqs_7222c_delay(20);
+
   while (iqs_7222c_rdy_read() != 0)
     ;
   data = 0;
@@ -456,17 +604,32 @@ void IQS7222CComponent::iqs_7222c_init(void) {
   iqs_7222c_i2c_stop();
   iqs_7222c_delay(100);
 
-  iqs_7222c_initialized = true;
+  device_initialized_ = true;
 }
+
+/**
+ * @brief Set to tell the registers read is triggered by rdy pin
+ *
+ * @param active
+ */
+void IQS7222CComponent::iqs_7222c_set_rdy_state(bool active) { iqs_7222c_rdy_pin_active = active; }
+
+/**
+ * @brief Tell if registers read are triggered by rdy pin
+ *
+ * @return true
+ * @return false
+ */
+bool IQS7222CComponent::iqs_7222c_get_rdy_pin_active(void) { return iqs_7222c_rdy_pin_active; }
 
 void IQS7222CComponent::iqs_7222c_read_version(void) {
-  // uint16_t stop_byte = 0xFF;
   uint8_t reg_addr = IQS_7222C_VERSION_REG;
-  uint8_t data[6] = {0};
 
-  iqs_7222c_i2c_read_registers(&reg_addr, 1, data, sizeof(data));
-  // iqs_7222c_i2c_wite((uint8_t *)&stop_byte, 2);
+  iqs_7222c_i2c_read_registers(&reg_addr, 1, version_data, sizeof(version_data));
+  ESP_LOGD(TAG, "iqs_7222c_read_version. data= 0x%02X.%02X.%02X.%02.X%02.X%02X", version_data[0], version_data[1],
+           version_data[2], version_data[3], version_data[4], version_data[5]);
 }
+
 /**
  * @brief Read system status, and event states. (Address 0x10 - 0x13)
  * @note Incuding Proxmity events, touch events
@@ -485,21 +648,21 @@ void IQS7222CComponent::iqs_7222c_read_state(iqs_7222c_states_t *state) {
 void IQS7222CComponent::iqs_7222c_read_touch_event(void) {
   uint8_t reg_addr = IQS_7222C_TOUCH_EVENT_STATES_REG;
 
-  iqs_7222c_i2c_read_registers(&reg_addr, 1, (uint8_t *) &iqs_7222c_touch_evt, sizeof(iqs_7222c_touch_evt));
+  iqs_7222c_i2c_read_registers(&reg_addr, 1, (uint8_t *) &iqs_7222c_states.touch, sizeof(iqs_7222c_states.touch));
 
   /* If the sensor isn ot ready to ready data, it returns 0xEEEE*/
-  if (iqs_7222c_touch_evt.value == 0xEEEE) {
+  if (iqs_7222c_states.touch.value == 0xEEEE) {
     iqs_7222c_i2c_stop();
-    iqs_7222c_touch_evt.value = 0;
+    iqs_7222c_states.touch.value = 0;
   }
 }
 
 uint8_t IQS7222CComponent::iqs_7222c_rdy_read(void) { return this->rdy_pin_->digital_read(); }
-/**
- * @brief Pull low to trigger MCLR reset
- *
- */
-void IQS7222CComponent::iqs_7222c_mclr_set(void) { this->mclr_pin_->digital_write(false); }
+
+void IQS7222CComponent::iqs_7222c_mclr_set(void) {
+  // Pull low to trigger MCLR reset
+  this->mclr_pin_->digital_write(false);
+}
 
 void IQS7222CComponent::iqs_7222c_mclr_clear(void) { this->mclr_pin_->digital_write(true); }
 
@@ -551,140 +714,6 @@ void IQS7222CComponent::iqs_7222c_i2c_write_cont(uint8_t *data, uint16_t data_le
 void IQS7222CComponent::iqs_7222c_i2c_read(uint8_t *data, uint16_t data_len) {
   this->bus_->read(address_, data, data_len);
 }
-
-/********************************************************************************** */
-
-void IQS7222CChannel::publish(bool state) {
-  ESP_LOGD(TAG, "Channel %d state: %d", channel_, state);
-  this->publish_state(state);
-}
-
-void IQS7222CComponent::setup() {
-  ESP_LOGCONFIG(TAG, "Setting up IQS7222C...");
-
-  // Setup pin RDY. Input, Active low.
-  if (this->rdy_pin_ != nullptr) {
-    this->rdy_pin_->pin_mode(gpio::FLAG_INPUT);
-    this->rdy_pin_->setup();
-    // this->attach_interrupt_(this->rdy_pin_, gpio::INTERRUPT_ANY_EDGE);
-  }
-
-  // Setup reset pin MCLR. Output, Active low.
-  this->mclr_pin_->pin_mode(gpio::FLAG_OUTPUT | gpio::FLAG_PULLUP);
-  this->mclr_pin_->setup();
-
-  // Publish all states
-  this->set_timeout(500, [this]() {
-    for (auto btn = 0; btn < IQS7222C_MAX_BUTTONS; btn++) {
-      for (auto *channel : this->channels[btn]) {
-        channel->publish_state(false);
-      }
-    }
-  });
-
-  // Initialize IQS7222C with a delay (for remote debugging)
-  if (this->init_delay_ms_ > 0) {
-    this->set_timeout(this->init_delay_ms_, [this]() { iqs_7222c_init(); });
-  } else {
-    iqs_7222c_init();
-  }
-}
-
-void IQS7222CComponent::dump_config() {
-  ESP_LOGCONFIG(TAG, "IQS7222C:");
-  LOG_I2C_DEVICE(this);
-  LOG_PIN("  MCLR Pin: ", this->mclr_pin_);
-  LOG_PIN("  RDY Pin: ", this->rdy_pin_);
-
-  // ESP_LOGCONFIG(TAG, "  Product ID: 0x%x", this->iqs7222c_product_id_);
-  // ESP_LOGCONFIG(TAG, "  Manufacture ID: 0x%x", this->iqs7222c_manufacture_id_);
-  // ESP_LOGCONFIG(TAG, "  Revision ID: 0x%x", this->iqs7222c_revision_);
-
-  switch (this->error_code_) {
-    case COMMUNICATION_FAILED:
-      ESP_LOGE(TAG, "Product ID or Manufacture ID of the connected device does not match a known IQS7222C.");
-      break;
-    case NONE:
-    default:
-      break;
-  }
-}
-
-void IQS7222CComponent::emulate_touch(uint8_t btn) {
-  if (btn >= IQS7222C_MAX_BUTTONS)
-    return;
-  for (auto *channel : this->channels[btn]) {
-    ESP_LOGD(TAG, "Emulate Button %d", btn);
-    channel->publish_state(true);
-  }
-
-  this->set_timeout(50, [this, btn]() {
-    for (auto *channel : this->channels[btn]) {
-      ESP_LOGD(TAG, "Emulate Button %d", btn);
-      channel->publish_state(false);
-    }
-  });
-}
-
-void IQS7222CComponent::loop() {
-  static uint16_t old_status{0xffff};
-  static uint16_t old_touch_status{0xffff};
-
-  if (this->test_mode_ || iqs_7222c_initialized) {
-    // while (iqs_7222c_rdy_read() != 0)
-    if (this->test_mode_ || iqs_7222c_rdy_read() == 0) {  // RDY low
-
-      if (!this->test_mode_) {
-        iqs_7222c_read_state(&iqs_7222c_states);
-      }
-
-      if (old_touch_status != iqs_7222c_states.touch.value) {
-        ESP_LOGD(TAG, "Touch event: %d", iqs_7222c_states.touch.value);
-        new_data_available = true;
-      }
-      if (old_status != iqs_7222c_states.status.value) {
-        ESP_LOGD(TAG, "Status event: %d", iqs_7222c_states.status.value);
-      }
-    }
-
-    if (new_data_available) {
-      ESP_LOGD(TAG, "New touch data available");
-
-      new_data_available = false;
-
-      for (auto btn = 0; btn < IQS7222C_MAX_BUTTONS; btn++) {
-        uint16_t touch_bit = (uint16_t) 1 << btn;
-        bool touched_now = (iqs_7222c_states.touch.value & touch_bit) != 0;
-        bool touched_before = (old_touch_status & touch_bit) != 0;
-
-        if (touched_now && !touched_before) {
-          ESP_LOGD(TAG, "Button %d touched", btn);
-        } else if (touched_before && !touched_now) {
-          ESP_LOGD(TAG, "Button %d released", btn);
-        }
-
-        if (touched_now != touched_before) {
-          for (auto *channel : this->channels[btn]) {
-            channel->publish_state(touched_now);
-          }
-        }
-      }
-    }
-    old_touch_status = iqs_7222c_states.touch.value;
-    old_status = iqs_7222c_states.status.value;
-  }
-}
-
-void IQS7222CComponent::attach_interrupt_(InternalGPIOPin *irq_pin, esphome::gpio::InterruptType type) {
-  ESP_LOGD(TAG, "attach_interrupt_(RDY)");
-  this->store_.rdy_pin = irq_pin->to_isr();
-  this->clear_rdy_interrupt_();
-  irq_pin->attach_interrupt(IQS7222CStore::gpio_intr, &this->store_, type);
-}
-
-void IQS7222CComponent::clear_rdy_interrupt_(void) { store_.deviceRDY = false; }
-
-bool IQS7222CComponent::get_rdy_interrupt_(void) { return store_.deviceRDY; }
 
 }  // namespace iqs7222c
 }  // namespace esphome
