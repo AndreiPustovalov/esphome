@@ -38,7 +38,7 @@ class IQS7222CComponent : public Component, public i2c::I2CDevice {
   float get_setup_priority() const override { return setup_priority::DATA; }
   void loop() override;
 
-  void set_interrupt_pin(InternalGPIOPin *pin) { this->interrupt_pin_ = pin; }
+  void set_rdy_pin(InternalGPIOPin *rdy_pin) { this->rdy_pin_ = rdy_pin; }
   void set_mclr_pin(GPIOPin *mclr_pin) { this->mclr_pin_ = mclr_pin; }
 
   void register_channel(IQS7222CChannel *channel) {
@@ -46,18 +46,24 @@ class IQS7222CComponent : public Component, public i2c::I2CDevice {
       this->channels[channel->get_channel()].push_back(channel);
     };
   }
+
+  void set_enable_test_mode(bool enable_test_mode) { this->test_mode_ = enable_test_mode; }
+  void set_init_delay_ms(uint16_t delay_ms) { this->init_delay_ms_ = delay_ms; }
   void emulate_touch(uint8_t btn);
 
  protected:
   GPIOPin *mclr_pin_{nullptr};
-  InternalGPIOPin *interrupt_pin_{nullptr};
+  InternalGPIOPin *rdy_pin_{nullptr};
   void attach_interrupt_(InternalGPIOPin *irq_pin, esphome::gpio::InterruptType type);
   void clear_rdy_interrupt_(void);
   bool get_rdy_interrupt_(void);
   IQS7222CStore store_;
 
-  bool new_data_available{false};
+  bool test_mode_{false};
+  uint32_t init_delay_ms_{0};
   bool iqs_7222c_initialized{false};
+
+  bool new_data_available{false};
 
   iqs_7222c_touch_event_t iqs_7222c_touch_evt;
   iqs_7222c_states_t iqs_7222c_states;
