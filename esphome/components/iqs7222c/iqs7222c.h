@@ -14,6 +14,7 @@ namespace esphome {
 namespace iqs7222c {
 
 const uint8_t IQS7222C_MAX_BUTTONS = 10;
+const uint16_t IQS7222C_PRODUCT_NR = 863;
 
 class IQS7222CButton : public binary_sensor::BinarySensor {
  public:
@@ -30,9 +31,9 @@ class IQS7222CComponent : public Component, public i2c::I2CDevice {
   //
   // Standard EspHome functions
   //
+  float get_setup_priority() const override;
   void setup() override;
   void dump_config() override;
-  float get_setup_priority() const override { return setup_priority::DATA; }
   void loop() override;
 
   //
@@ -53,7 +54,6 @@ class IQS7222CComponent : public Component, public i2c::I2CDevice {
 
   bool test_mode_{false};
   uint32_t init_delay_ms_{0};
-  bool device_initialized_{false};
 
   union {
     uint8_t data[6];
@@ -64,8 +64,8 @@ class IQS7222CComponent : public Component, public i2c::I2CDevice {
     } __attribute__((packed));
   } product_version_;
 
-  iqs_7222c_states_t state_;
-  iqs_7222c_states_t state_prev_{0xffff, 0xffff, 0xffff, 0xffff};
+  iqs_7222c_states_t device_states_;
+  iqs_7222c_states_t device_states_prev_{0xffff, 0xffff, 0xffff, 0xffff};
 
   std::vector<IQS7222CButton *> buttons[IQS7222C_MAX_BUTTONS];
 
@@ -75,8 +75,10 @@ class IQS7222CComponent : public Component, public i2c::I2CDevice {
   void init_device_();
   void write_settings_();
   void read_product_version_();
-  void read_state_();
+  void read_device_states_();
   void read_touch_event_();
+
+  void process_touch_data_();
 
   //
   // Pin-level functions
@@ -94,6 +96,26 @@ class IQS7222CComponent : public Component, public i2c::I2CDevice {
   inline void i2c_write_cont_(uint8_t *data, uint16_t data_len);
   inline void i2c_read_(uint8_t *data, uint16_t data_len);
   void i2c_read_registers_(uint8_t *addr, uint16_t addr_size, uint8_t *data, uint16_t data_len);
+
+  //
+  // FSM
+  //
+  enum class State : uint8_t {
+    NOT_INITIALIZED = 0,
+    WAIT,
+    INIT_HARD_RESET,
+    INIT_WAIT_MCLR,
+    INIT_READ_PRODUCT_VERSION,
+    INIT_SOFT_RESET,
+    INIT_WRITE_SETTINGS,
+    INIT_READ_STATE,
+    RUNTIME,
+  } state_{State::NOT_INITIALIZED}, last_reported_state_{State::NOT_INITIALIZED};
+
+  void report_state_();
+
+  inline void set_next_state_(State state);
+  void set_next_state_delayed_(State state, uint32_t delay_ms);
 
   enum ErrorCode {
     NONE = 0,
