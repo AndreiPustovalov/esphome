@@ -15,13 +15,6 @@ namespace iqs7222c {
 
 const uint8_t IQS7222C_MAX_BUTTONS = 10;
 
-/* @brief Data store for interrupt routine */
-struct IQS7222CStore {
-  volatile bool deviceRDY{false};
-  ISRInternalGPIOPin rdy_pin;
-  static void gpio_intr(IQS7222CStore *store);
-};
-
 class IQS7222CButton : public binary_sensor::BinarySensor {
  public:
   void set_channel(uint8_t channel) { this->channel_ = channel; }
@@ -58,54 +51,49 @@ class IQS7222CComponent : public Component, public i2c::I2CDevice {
   GPIOPin *mclr_pin_{nullptr};         // Master Clear pin - for resetting the device. Active low.
   InternalGPIOPin *rdy_pin_{nullptr};  // Ready pin - device is ready to communicate. Active low.
 
-  void attach_interrupt_(InternalGPIOPin *irq_pin, esphome::gpio::InterruptType type);
-  void clear_rdy_interrupt_(void);
-  bool get_rdy_interrupt_(void);
-  IQS7222CStore store_;
-
   bool test_mode_{false};
   uint32_t init_delay_ms_{0};
   bool device_initialized_{false};
 
-  bool iqs_7222c_rdy_pin_active{false};
+  union {
+    uint8_t data[6];
+    struct {
+      uint16_t product_nr;
+      uint16_t ver_major;
+      uint16_t ver_minor;
+    } __attribute__((packed));
+  } product_version_;
 
-  uint8_t version_data[6] = {0};
-  iqs_7222c_states_t iqs_7222c_states;
-  iqs_7222c_states_t iqs_7222c_states_old{0xffff, 0xffff, 0xffff, 0xffff};
+  iqs_7222c_states_t state_;
+  iqs_7222c_states_t state_prev_{0xffff, 0xffff, 0xffff, 0xffff};
 
   std::vector<IQS7222CButton *> buttons[IQS7222C_MAX_BUTTONS];
 
-  //////////////////
+  //
   // Main functions
-  //////////////////
+  //
+  void init_device_();
+  void write_settings_();
+  void read_product_version_();
+  void read_state_();
+  void read_touch_event_();
 
-  void iqs_7222c_init(void);
+  //
+  // Pin-level functions
+  //
+  inline uint8_t rdy_read_();
+  inline void mclr_set_();
+  inline void mclr_clear_();
 
-  void iqs_7222c_set_rdy_state(bool active);
-  bool iqs_7222c_get_rdy_pin_active(void);
-
-  void iqs_7222c_read_version(void);
-  void iqs_7222c_read_state(iqs_7222c_states_t *state);
-  void iqs_7222c_read_touch_event(void);
-
-  /////////////////
-  // HAL functions
-  /////////////////
-
-  void iqs_7222c_delay(uint32_t ms);
-  void iqs_7222c_hal_init(void);
-
-  uint8_t iqs_7222c_rdy_read(void);
-
-  void iqs_7222c_mclr_set(void);
-  void iqs_7222c_mclr_clear(void);
-
-  void iqs_7222c_i2c_stop(void);
-
-  void iqs_7222c_i2c_write(uint8_t *data, uint16_t data_len);
-  void iqs_7222c_i2c_write_cont(uint8_t *data, uint16_t data_len);
-  void iqs_7222c_i2c_read(uint8_t *data, uint16_t data_len);
-  void iqs_7222c_i2c_read_registers(uint8_t *addr, uint16_t addr_size, uint8_t *data, uint16_t data_len);
+  //
+  // I2C direct access functions
+  //
+  inline void i2c_stop_();
+  inline void i2c_stop_and_delay_();
+  inline void i2c_write_(uint8_t *data, uint16_t data_len);
+  inline void i2c_write_cont_(uint8_t *data, uint16_t data_len);
+  inline void i2c_read_(uint8_t *data, uint16_t data_len);
+  void i2c_read_registers_(uint8_t *addr, uint16_t addr_size, uint8_t *data, uint16_t data_len);
 
   enum ErrorCode {
     NONE = 0,

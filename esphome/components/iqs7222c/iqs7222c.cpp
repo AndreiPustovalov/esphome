@@ -285,17 +285,12 @@ static uint8_t pmu_sys_setting[22] = {(IQS_7222C_PMU_SYS_SETTING),
                                       I2CCOMMS_0};
 
 static uint8_t soft_reset[3] = {IQS_7222C_PMU_SYS_SETTING, 0x02, 0x00};
-
-/***********************************************************************************/
-
-void IRAM_ATTR IQS7222CStore::gpio_intr(IQS7222CStore *store) {
-  store->deviceRDY = !store->rdy_pin.digital_read();  // RDY active low
-}
+static const uint16_t stop_byte = 0x00FF;
 
 /***********************************************************************************/
 
 void IQS7222CButton::publish(bool state) {
-  ESP_LOGD(TAG, "Button %d state: %d", channel_, state);
+  ESP_LOGD(TAG, "IQS7222CButton %d state: %d", channel_, state);
   this->publish_state(state);
 }
 
@@ -304,38 +299,33 @@ void IQS7222CButton::publish(bool state) {
 void IQS7222CComponent::setup() {
   ESP_LOGCONFIG(TAG, "Setting up IQS7222C...");
 
-  // Setup pin RDY. Input, Active low.
-  if (this->rdy_pin_ != nullptr) {
-    this->rdy_pin_->pin_mode(gpio::FLAG_INPUT);
-    this->rdy_pin_->setup();
-    // this->attach_interrupt_(this->rdy_pin_, gpio::INTERRUPT_ANY_EDGE);
-  }
+  this->rdy_pin_->pin_mode(gpio::FLAG_INPUT);
+  this->rdy_pin_->setup();
 
-  // Setup reset pin MCLR. Output, Active low.
   this->mclr_pin_->pin_mode(gpio::FLAG_OUTPUT | gpio::FLAG_PULLUP);
   this->mclr_pin_->setup();
 
-  // Initialize IQS7222C with a delay (for remote debugging)
   if (this->init_delay_ms_ > 0) {
-    this->set_timeout(this->init_delay_ms_, [this]() { iqs_7222c_init(); });
+    // Initialize IQS7222C with a delay (for remote debugging)
+    this->set_timeout(this->init_delay_ms_, [this]() { init_device_(); });
   } else {
-    iqs_7222c_init();
+    init_device_();
   }
 }
 
 void IQS7222CComponent::dump_config() {
   ESP_LOGCONFIG(TAG, "IQS7222C:");
+
   LOG_I2C_DEVICE(this);
   LOG_PIN("  MCLR Pin: ", this->mclr_pin_);
   LOG_PIN("  RDY Pin: ", this->rdy_pin_);
 
-  // ESP_LOGCONFIG(TAG, "  Product ID: 0x%x", this->iqs7222c_product_id_);
-  // ESP_LOGCONFIG(TAG, "  Manufacture ID: 0x%x", this->iqs7222c_manufacture_id_);
-  // ESP_LOGCONFIG(TAG, "  Revision ID: 0x%x", this->iqs7222c_revision_);
+  ESP_LOGCONFIG(TAG, "  Product Nr: %d", this->product_version_.product_nr);
+  ESP_LOGCONFIG(TAG, "  Version: %d.%d", this->product_version_.ver_major, this->product_version_.ver_minor);
 
   switch (this->error_code_) {
     case COMMUNICATION_FAILED:
-      ESP_LOGE(TAG, "Product ID or Manufacture ID of the connected device does not match a known IQS7222C.");
+      ESP_LOGE(TAG, "Product Nr of the connected device does not match a known IQS7222C.");
       break;
     case NONE:
     default:
@@ -349,18 +339,18 @@ void IQS7222CComponent::loop() {
   if (this->test_mode_ || this->device_initialized_) {
     // while (iqs_7222c_rdy_read() != 0) // wait for RDY window
 
-    if (this->test_mode_ || iqs_7222c_rdy_read() == 0) {  // RDY low = Window opened
+    if (this->test_mode_ || this->rdy_read_() == 0) {  // RDY low = Window opened
 
       if (!this->test_mode_) {
-        iqs_7222c_read_state(&iqs_7222c_states);
+        read_state_();
       }
 
-      if (iqs_7222c_states_old.touch.value != iqs_7222c_states.touch.value) {
-        ESP_LOGD(TAG, "Touch event: %d", iqs_7222c_states.touch.value);
+      if (this->state_prev_.touch.value != this->state_.touch.value) {
+        ESP_LOGD(TAG, "Touch event: %d", this->state_.touch.value);
         new_touch_data_available = true;
       }
-      if (iqs_7222c_states_old.status.value != iqs_7222c_states.status.value) {
-        ESP_LOGD(TAG, "Status event: %d", iqs_7222c_states.status.value);
+      if (this->state_prev_.status.value != this->state_.status.value) {
+        ESP_LOGD(TAG, "Status event: %d", this->state_.status.value);
       }
     }
 
@@ -371,8 +361,8 @@ void IQS7222CComponent::loop() {
 
       for (auto btn = 0; btn < IQS7222C_MAX_BUTTONS; btn++) {
         uint16_t touch_bit = (uint16_t) 1 << btn;
-        bool touched_now = (iqs_7222c_states.touch.value & touch_bit) != 0;
-        bool touched_before = (iqs_7222c_states_old.touch.value & touch_bit) != 0;
+        bool touched_now = (this->state_.touch.value & touch_bit) != 0;
+        bool touched_before = (this->state_prev_.touch.value & touch_bit) != 0;
 
         if (touched_now && !touched_before) {
           ESP_LOGD(TAG, "Button %d touched", btn);
@@ -381,295 +371,202 @@ void IQS7222CComponent::loop() {
         }
 
         if (touched_now != touched_before) {
-          for (auto *channel : this->buttons[btn]) {
-            channel->publish_state(touched_now);
+          for (auto *button : this->buttons[btn]) {
+            button->publish(touched_now);
           }
         }
       }
     }
-    iqs_7222c_states_old.touch.value = iqs_7222c_states.touch.value;
-    iqs_7222c_states_old.status.value = iqs_7222c_states.status.value;
+    this->state_prev_.touch.value = this->state_.touch.value;
+    this->state_prev_.status.value = this->state_.status.value;
   }
 }
 
-void IQS7222CComponent::register_button(IQS7222CButton *btn) {
-  if (btn->get_channel() < IQS7222C_MAX_BUTTONS) {
-    this->buttons[btn->get_channel()].push_back(btn);
-  };
+void IQS7222CComponent::register_button(IQS7222CButton *button) {
+  if (button->get_channel() < IQS7222C_MAX_BUTTONS) {
+    this->buttons[button->get_channel()].push_back(button);
+  }
 }
 
 void IQS7222CComponent::emulate_touch(uint8_t btn) {
   if (btn >= IQS7222C_MAX_BUTTONS)
     return;
 
-  for (auto *channel : this->buttons[btn]) {
+  for (auto *button : this->buttons[btn]) {
     ESP_LOGD(TAG, "Emulate: Button %d touched", btn);
-    channel->publish_state(true);
+    button->publish_state(true);
   }
 
   this->set_timeout(50, [this, btn]() {
-    for (auto *channel : this->buttons[btn]) {
+    for (auto *button : this->buttons[btn]) {
       ESP_LOGD(TAG, "Emulate: Button %d released", btn);
-      channel->publish_state(false);
+      button->publish(false);
     }
   });
 }
 
-void IQS7222CComponent::attach_interrupt_(InternalGPIOPin *irq_pin, esphome::gpio::InterruptType type) {
-  this->store_.rdy_pin = irq_pin->to_isr();
-  this->clear_rdy_interrupt_();
-  irq_pin->attach_interrupt(IQS7222CStore::gpio_intr, &this->store_, type);
-}
-
-void IQS7222CComponent::clear_rdy_interrupt_(void) { this->store_.deviceRDY = false; }
-
-bool IQS7222CComponent::get_rdy_interrupt_(void) { return this->store_.deviceRDY; }
-
 /***********************************************************************************/
 
-#define WAIT_FOR_RDY_WINDOW() (while (iqs_7222c_rdy_read() != 0);)
+#define WAIT_FOR_RDY_WINDOW() \
+  while (this->rdy_read_() != 0) \
+    ;
 
-void IQS7222CComponent::iqs_7222c_init(void) {
-  ESP_LOGVV(TAG, "iqs_7222c_init");
+void IQS7222CComponent::init_device_() {
+  ESP_LOGV(TAG, "init_device_()");
 
   if (this->test_mode_) {
     ESP_LOGV(TAG, "Test mode enabled");
-    device_initialized_ = true;
+    this->device_initialized_ = true;
     return;
   }
 
-  // iqs_7222c_hal_init();
+  this->mclr_set_();  // Pull MCLR low to enter reset state
+  delay(100);
+  this->mclr_clear_();
+  delay(100);
 
-  iqs_7222c_mclr_set();  // Pull MCLR low to enter reset state
-  iqs_7222c_delay(100);
-  iqs_7222c_mclr_clear();
-  iqs_7222c_delay(100);
+  this->i2c_stop_and_delay_();
 
-  iqs_7222c_i2c_stop();
-  iqs_7222c_delay(20);
+  WAIT_FOR_RDY_WINDOW();
+  this->i2c_write_((uint8_t *) &soft_reset, sizeof(soft_reset));
+  this->i2c_stop_and_delay_();
 
-  while (iqs_7222c_rdy_read() != 0)
-    ;
-  iqs_7222c_i2c_write((uint8_t *) &soft_reset, sizeof(soft_reset));
-  iqs_7222c_i2c_stop();
-  iqs_7222c_delay(20);
+  WAIT_FOR_RDY_WINDOW();
+  this->read_product_version_();
+  this->i2c_stop_and_delay_();
 
-  while (iqs_7222c_rdy_read() != 0)
-    ;
-  iqs_7222c_read_version();
-  iqs_7222c_i2c_stop();
-  iqs_7222c_delay(20);
+  this->write_settings_();
 
-  while (iqs_7222c_rdy_read() != 0)
-    ;
+  WAIT_FOR_RDY_WINDOW();
+  this->read_state_();
+  this->i2c_stop_();
 
-  iqs_7222c_i2c_write_cont((uint8_t *) &cycle_setup_0, sizeof(cycle_setup_0));
-  iqs_7222c_i2c_write_cont((uint8_t *) &cycle_setup_1, sizeof(cycle_setup_1));
-  iqs_7222c_i2c_write_cont((uint8_t *) &cycle_setup_2, sizeof(cycle_setup_2));
-  iqs_7222c_i2c_write_cont((uint8_t *) &cycle_setup_3, sizeof(cycle_setup_3));
-  iqs_7222c_i2c_write_cont((uint8_t *) &cycle_setup_4, sizeof(cycle_setup_4));
-  iqs_7222c_i2c_write_cont((uint8_t *) &global_cycle_setup, sizeof(global_cycle_setup));
-  iqs_7222c_i2c_write_cont((uint8_t *) &button_setup_0, sizeof(button_setup_0));
-  iqs_7222c_i2c_write_cont((uint8_t *) &button_setup_1, sizeof(button_setup_1));
-  iqs_7222c_i2c_write_cont((uint8_t *) &button_setup_2, sizeof(button_setup_2));
-  iqs_7222c_i2c_write_cont((uint8_t *) &button_setup_3, sizeof(button_setup_3));
-  iqs_7222c_i2c_write_cont((uint8_t *) &button_setup_4, sizeof(button_setup_4));
-  iqs_7222c_i2c_write_cont((uint8_t *) &button_setup_5, sizeof(button_setup_5));
-  iqs_7222c_i2c_write_cont((uint8_t *) &button_setup_6, sizeof(button_setup_6));
-  iqs_7222c_i2c_write_cont((uint8_t *) &button_setup_7, sizeof(button_setup_7));
-  iqs_7222c_i2c_write_cont((uint8_t *) &button_setup_8, sizeof(button_setup_8));
-  iqs_7222c_i2c_write_cont((uint8_t *) &button_setup_9, sizeof(button_setup_9));
-  // // iqs_7222c_i2c_write_cont((uint8_t *)&button_stup_0_to_4, sizeof(button_stup_0_to_4));
-  // // iqs_7222c_i2c_write_cont((uint8_t *)&button_stup_5_to_9, sizeof(button_stup_5_to_9));
-
-  // // iqs_7222c_i2c_write_cont((uint8_t *)&ch_setup_0_9, sizeof(ch_setup_0_9));
-  iqs_7222c_i2c_write_cont((uint8_t *) &ch_setup_0, sizeof(ch_setup_0));
-  iqs_7222c_i2c_write_cont((uint8_t *) &ch_setup_1, sizeof(ch_setup_1));
-  iqs_7222c_i2c_write_cont((uint8_t *) &ch_setup_2, sizeof(ch_setup_2));
-  iqs_7222c_i2c_write_cont((uint8_t *) &ch_setup_3, sizeof(ch_setup_3));
-  iqs_7222c_i2c_write_cont((uint8_t *) &ch_setup_4, sizeof(ch_setup_4));
-  iqs_7222c_i2c_write_cont((uint8_t *) &ch_setup_5, sizeof(ch_setup_5));
-  iqs_7222c_i2c_write_cont((uint8_t *) &ch_setup_6, sizeof(ch_setup_6));
-  iqs_7222c_i2c_write_cont((uint8_t *) &ch_setup_7, sizeof(ch_setup_7));
-  iqs_7222c_i2c_write_cont((uint8_t *) &ch_setup_8, sizeof(ch_setup_8));
-  iqs_7222c_i2c_write_cont((uint8_t *) &ch_setup_9, sizeof(ch_setup_9));
-
-  iqs_7222c_i2c_write_cont((uint8_t *) &filter_beats, sizeof(filter_beats));
-  iqs_7222c_i2c_write_cont((uint8_t *) &slider_wheel_setup_0, sizeof(slider_wheel_setup_0));
-  iqs_7222c_i2c_write_cont((uint8_t *) &slider_wheel_setup_1, sizeof(slider_wheel_setup_1));
-  // // iqs_7222c_i2c_write_cont((uint8_t *)&slider_wheel_setup_0_to_1, sizeof(slider_wheel_setup_0_to_1));
-  // // iqs_7222c_i2c_write_cont((uint8_t *)&gpio_setting_0_to_2, sizeof(gpio_setting_0_to_2));
-  iqs_7222c_i2c_write_cont((uint8_t *) &gpio_setting_0, sizeof(gpio_setting_0));
-  iqs_7222c_i2c_write_cont((uint8_t *) &gpio_setting_1, sizeof(gpio_setting_1));
-  iqs_7222c_i2c_write_cont((uint8_t *) &gpio_setting_2, sizeof(gpio_setting_2));
-  iqs_7222c_i2c_write((uint8_t *) &pmu_sys_setting, sizeof(pmu_sys_setting));
-  iqs_7222c_i2c_stop();
-  iqs_7222c_delay(20);
-
-  uint16_t ch_setup_reg = 0x00A0;
-  uint16_t data = 0;
-  while (iqs_7222c_rdy_read() != 0)
-    ;
-  iqs_7222c_i2c_read_registers((uint8_t *) &ch_setup_reg, 2, (uint8_t *) &data, 2);
-  ESP_LOGV(TAG, "722c ch0 setup :0x%04X", data);
-
-  ch_setup_reg = 0x00A1;
-  iqs_7222c_i2c_stop();
-  iqs_7222c_delay(20);
-
-  while (iqs_7222c_rdy_read() != 0)
-    ;
-  data = 0;
-  iqs_7222c_i2c_read_registers((uint8_t *) &ch_setup_reg, 2, (uint8_t *) &data, 2);
-  ESP_LOGV(TAG, "722c ch1 setup :0x%04X", data);
-
-  ch_setup_reg = 0x00A2;
-  iqs_7222c_i2c_stop();
-  iqs_7222c_delay(20);
-  while (iqs_7222c_rdy_read() != 0)
-    ;
-  data = 0;
-  iqs_7222c_i2c_read_registers((uint8_t *) &ch_setup_reg, 2, (uint8_t *) &data, 2);
-  ESP_LOGV(TAG, "722c ch2 setup :0x%04X", data);
-
-  ch_setup_reg = 0x00A3;
-  iqs_7222c_i2c_stop();
-  iqs_7222c_delay(20);
-  while (iqs_7222c_rdy_read() != 0)
-    ;
-  data = 0;
-  iqs_7222c_i2c_read_registers((uint8_t *) &ch_setup_reg, 2, (uint8_t *) &data, 2);
-  ESP_LOGV(TAG, "722c ch3 setup :0x%04X", data);
-
-  ch_setup_reg = 0x00A4;
-  iqs_7222c_i2c_stop();
-  iqs_7222c_delay(20);
-  while (iqs_7222c_rdy_read() != 0)
-    ;
-  data = 0;
-  iqs_7222c_i2c_read_registers((uint8_t *) &ch_setup_reg, 2, (uint8_t *) &data, 2);
-  ESP_LOGV(TAG, "722c ch4 setup :0x%04X", data);
-
-  ch_setup_reg = 0x00A5;
-  iqs_7222c_i2c_stop();
-  iqs_7222c_delay(20);
-  while (iqs_7222c_rdy_read() != 0)
-    ;
-  data = 0;
-  iqs_7222c_i2c_read_registers((uint8_t *) &ch_setup_reg, 2, (uint8_t *) &data, 2);
-  ESP_LOGV(TAG, "722c ch5 setup :0x%04X", data);
-
-  ch_setup_reg = 0x00A6;
-  iqs_7222c_i2c_stop();
-  iqs_7222c_delay(20);
-  while (iqs_7222c_rdy_read() != 0)
-    ;
-  data = 0;
-  iqs_7222c_i2c_read_registers((uint8_t *) &ch_setup_reg, 2, (uint8_t *) &data, 2);
-  ESP_LOGV(TAG, "722c ch6 setup :0x%04X", data);
-
-  ch_setup_reg = 0x00A7;
-  iqs_7222c_i2c_stop();
-  iqs_7222c_delay(20);
-  while (iqs_7222c_rdy_read() != 0)
-    ;
-  data = 0;
-  iqs_7222c_i2c_read_registers((uint8_t *) &ch_setup_reg, 2, (uint8_t *) &data, 2);
-  ESP_LOGV(TAG, "722c ch7 setup :0x%04X", data);
-
-  ch_setup_reg = 0x00A8;
-  iqs_7222c_i2c_stop();
-  iqs_7222c_delay(20);
-  while (iqs_7222c_rdy_read() != 0)
-    ;
-  data = 0;
-  iqs_7222c_i2c_read_registers((uint8_t *) &ch_setup_reg, 2, (uint8_t *) &data, 2);
-  ESP_LOGV(TAG, "722c ch8 setup :0x%04X", data);
-
-  ch_setup_reg = 0x00A9;
-  iqs_7222c_i2c_stop();
-  iqs_7222c_delay(20);
-  while (iqs_7222c_rdy_read() != 0)
-    ;
-  data = 0;
-  iqs_7222c_i2c_read_registers((uint8_t *) &ch_setup_reg, 2, (uint8_t *) &data, 2);
-  ESP_LOGV(TAG, "722c ch9 setup :0x%04X", data);
-
-  iqs_7222c_i2c_stop();
-  iqs_7222c_delay(20);
-
-  while (iqs_7222c_rdy_read() != 0) {
-    iqs_7222c_read_state(&iqs_7222c_states);
-  }
-  iqs_7222c_i2c_stop();
-  iqs_7222c_delay(100);
+  delay(100);  // wait for ATI to finish
 
   device_initialized_ = true;
 }
 
-/**
- * @brief Set to tell the registers read is triggered by rdy pin
- *
- * @param active
- */
-void IQS7222CComponent::iqs_7222c_set_rdy_state(bool active) { iqs_7222c_rdy_pin_active = active; }
+void IQS7222CComponent::write_settings_() {
+  ESP_LOGV(TAG, "write_settings_()");
 
-/**
- * @brief Tell if registers read are triggered by rdy pin
- *
- * @return true
- * @return false
- */
-bool IQS7222CComponent::iqs_7222c_get_rdy_pin_active(void) { return iqs_7222c_rdy_pin_active; }
+  WAIT_FOR_RDY_WINDOW();
+  this->i2c_write_cont_((uint8_t *) &cycle_setup_0, sizeof(cycle_setup_0));
+  this->i2c_write_cont_((uint8_t *) &cycle_setup_1, sizeof(cycle_setup_1));
+  this->i2c_write_cont_((uint8_t *) &cycle_setup_2, sizeof(cycle_setup_2));
+  this->i2c_write_cont_((uint8_t *) &cycle_setup_3, sizeof(cycle_setup_3));
+  this->i2c_write_cont_((uint8_t *) &cycle_setup_4, sizeof(cycle_setup_4));
+  this->i2c_write_cont_((uint8_t *) &global_cycle_setup, sizeof(global_cycle_setup));
+  this->i2c_write_cont_((uint8_t *) &button_setup_0, sizeof(button_setup_0));
+  this->i2c_write_cont_((uint8_t *) &button_setup_1, sizeof(button_setup_1));
+  this->i2c_write_cont_((uint8_t *) &button_setup_2, sizeof(button_setup_2));
+  this->i2c_write_cont_((uint8_t *) &button_setup_3, sizeof(button_setup_3));
+  this->i2c_write_cont_((uint8_t *) &button_setup_4, sizeof(button_setup_4));
+  this->i2c_write_cont_((uint8_t *) &button_setup_5, sizeof(button_setup_5));
+  this->i2c_write_cont_((uint8_t *) &button_setup_6, sizeof(button_setup_6));
+  this->i2c_write_cont_((uint8_t *) &button_setup_7, sizeof(button_setup_7));
+  this->i2c_write_cont_((uint8_t *) &button_setup_8, sizeof(button_setup_8));
+  this->i2c_write_cont_((uint8_t *) &button_setup_9, sizeof(button_setup_9));
+  // this->i2c_write_cont_((uint8_t *)&button_stup_0_to_4, sizeof(button_stup_0_to_4));
+  // this->i2c_write_cont_((uint8_t *)&button_stup_5_to_9, sizeof(button_stup_5_to_9));
 
-void IQS7222CComponent::iqs_7222c_read_version(void) {
+  // this->i2c_write_cont_((uint8_t *)&ch_setup_0_9, sizeof(ch_setup_0_9));
+  this->i2c_write_cont_((uint8_t *) &ch_setup_0, sizeof(ch_setup_0));
+  this->i2c_write_cont_((uint8_t *) &ch_setup_1, sizeof(ch_setup_1));
+  this->i2c_write_cont_((uint8_t *) &ch_setup_2, sizeof(ch_setup_2));
+  this->i2c_write_cont_((uint8_t *) &ch_setup_3, sizeof(ch_setup_3));
+  this->i2c_write_cont_((uint8_t *) &ch_setup_4, sizeof(ch_setup_4));
+  this->i2c_write_cont_((uint8_t *) &ch_setup_5, sizeof(ch_setup_5));
+  this->i2c_write_cont_((uint8_t *) &ch_setup_6, sizeof(ch_setup_6));
+  this->i2c_write_cont_((uint8_t *) &ch_setup_7, sizeof(ch_setup_7));
+  this->i2c_write_cont_((uint8_t *) &ch_setup_8, sizeof(ch_setup_8));
+  this->i2c_write_cont_((uint8_t *) &ch_setup_9, sizeof(ch_setup_9));
+
+  this->i2c_write_cont_((uint8_t *) &filter_beats, sizeof(filter_beats));
+  this->i2c_write_cont_((uint8_t *) &slider_wheel_setup_0, sizeof(slider_wheel_setup_0));
+  this->i2c_write_cont_((uint8_t *) &slider_wheel_setup_1, sizeof(slider_wheel_setup_1));
+  // this->i2c_write_cont_((uint8_t *)&slider_wheel_setup_0_to_1, sizeof(slider_wheel_setup_0_to_1));
+  // this->i2c_write_cont_((uint8_t *)&gpio_setting_0_to_2, sizeof(gpio_setting_0_to_2));
+  this->i2c_write_cont_((uint8_t *) &gpio_setting_0, sizeof(gpio_setting_0));
+  this->i2c_write_cont_((uint8_t *) &gpio_setting_1, sizeof(gpio_setting_1));
+  this->i2c_write_cont_((uint8_t *) &gpio_setting_2, sizeof(gpio_setting_2));
+  this->i2c_write_((uint8_t *) &pmu_sys_setting, sizeof(pmu_sys_setting));
+  this->i2c_stop_and_delay_();
+
+  uint16_t ch_setup_reg = 0x00A0;
+  uint16_t data = 0;
+
+  for (uint16_t ch_num = 0; ch_num < 10; ch_num++) {
+    ch_setup_reg = 0x00A0 + ch_num;
+    data = 0;
+
+    WAIT_FOR_RDY_WINDOW();
+    this->i2c_read_registers_((uint8_t *) &ch_setup_reg, 2, (uint8_t *) &data, 2);
+    this->i2c_stop_and_delay_();
+    ESP_LOGV(TAG, "iqs7222c channel%d setup: 0x%04X", ch_setup_reg, data);
+  }
+}
+
+void IQS7222CComponent::read_product_version_() {
   uint8_t reg_addr = IQS_7222C_VERSION_REG;
 
-  iqs_7222c_i2c_read_registers(&reg_addr, 1, version_data, sizeof(version_data));
-  ESP_LOGD(TAG, "iqs_7222c_read_version. data= 0x%02X.%02X.%02X.%02.X%02.X%02X", version_data[0], version_data[1],
-           version_data[2], version_data[3], version_data[4], version_data[5]);
+  this->i2c_read_registers_(&reg_addr, 1, product_version_.data, sizeof(product_version_.data));
+  ESP_LOGD(TAG, "read_product_version_. Product Num = %d, Major = %d, Minor = %d", product_version_.product_nr,
+           product_version_.ver_major, product_version_.ver_minor);
 }
 
 /**
  * @brief Read system status, and event states. (Address 0x10 - 0x13)
  * @note Incuding Proxmity events, touch events
  */
-void IQS7222CComponent::iqs_7222c_read_state(iqs_7222c_states_t *state) {
+void IQS7222CComponent::read_state_() {
   uint8_t reg_addr = IQS_7222C_SYSTEM_STATES_REG;
 
-  iqs_7222c_i2c_read_registers(&reg_addr, 1, (uint8_t *) state, sizeof(iqs_7222c_states_t));
+  this->i2c_read_registers_(&reg_addr, 1, (uint8_t *) &this->state_, sizeof(iqs_7222c_states_t));
 
-  if (state->touch.value == 0xEEEE || state->touch.value == 0xFFEE || state->touch.value == 0xEEFF ||
-      state->touch.value == 0xFFFF) {
-    state->touch.value = 0;
+  if (this->state_.touch.value == 0xEEEE || this->state_.touch.value == 0xFFEE || this->state_.touch.value == 0xEEFF ||
+      this->state_.touch.value == 0xFFFF) {
+    this->state_.touch.value = 0;
   }
 }
 
-void IQS7222CComponent::iqs_7222c_read_touch_event(void) {
+void IQS7222CComponent::read_touch_event_() {
   uint8_t reg_addr = IQS_7222C_TOUCH_EVENT_STATES_REG;
 
-  iqs_7222c_i2c_read_registers(&reg_addr, 1, (uint8_t *) &iqs_7222c_states.touch, sizeof(iqs_7222c_states.touch));
+  this->i2c_read_registers_(&reg_addr, 1, (uint8_t *) &state_.touch, sizeof(state_.touch));
 
-  /* If the sensor isn ot ready to ready data, it returns 0xEEEE*/
-  if (iqs_7222c_states.touch.value == 0xEEEE) {
-    iqs_7222c_i2c_stop();
-    iqs_7222c_states.touch.value = 0;
+  /* If the sensor isn't ready to read data, it returns 0xEEEE */
+  if (state_.touch.value == 0xEEEE) {
+    this->i2c_stop_();
+    state_.touch.value = 0;
   }
 }
 
-uint8_t IQS7222CComponent::iqs_7222c_rdy_read(void) { return this->rdy_pin_->digital_read(); }
+inline uint8_t IQS7222CComponent::rdy_read_() { return this->rdy_pin_->digital_read(); }
 
-void IQS7222CComponent::iqs_7222c_mclr_set(void) {
-  // Pull low to trigger MCLR reset
-  this->mclr_pin_->digital_write(false);
+inline void IQS7222CComponent::mclr_set_() { this->mclr_pin_->digital_write(false); }
+
+inline void IQS7222CComponent::mclr_clear_() { this->mclr_pin_->digital_write(true); }
+
+inline void IQS7222CComponent::i2c_stop_() { this->bus_->write(address_, (uint8_t *) &stop_byte, 2, true); }
+
+inline void IQS7222CComponent::i2c_stop_and_delay_() {
+  this->i2c_stop_();
+  delay(20);
 }
 
-void IQS7222CComponent::iqs_7222c_mclr_clear(void) { this->mclr_pin_->digital_write(true); }
+inline void IQS7222CComponent::i2c_write_(uint8_t *data, uint16_t data_len) {
+  this->bus_->write(address_, data, data_len, true);
+}
 
-void IQS7222CComponent::iqs_7222c_delay(uint32_t ms) { delay(ms); }
+inline void IQS7222CComponent::i2c_write_cont_(uint8_t *data, uint16_t data_len) {
+  this->bus_->write(address_, data, data_len, false);
+}
 
-void IQS7222CComponent::iqs_7222c_i2c_read_registers(uint8_t *addr, uint16_t addr_size, uint8_t *data,
-                                                     uint16_t data_len) {
+inline void IQS7222CComponent::i2c_read_(uint8_t *data, uint16_t data_len) {
+  this->bus_->read(address_, data, data_len);
+}
+
+void IQS7222CComponent::i2c_read_registers_(uint8_t *addr, uint16_t addr_size, uint8_t *data, uint16_t data_len) {
   i2c::ErrorCode err;
   if (addr_size == 2) {
     err = this->read_register16(*((uint16_t *) addr), data, data_len, false);
@@ -680,10 +577,9 @@ void IQS7222CComponent::iqs_7222c_i2c_read_registers(uint8_t *addr, uint16_t add
   /* If the sensor is not ready to read data, it returns 0xEEEE */
   if (err != i2c::ErrorCode::ERROR_OK) {
     ESP_LOGI(TAG, "err %d %s", err, esp_err_to_name(err));
-    ESP_LOGD(TAG, "iqs_7222c_i2c_read_registers. err=  %d", err);
+    ESP_LOGD(TAG, "i2c_read_registers_. err=  %d", err);
     memset(data, 0, data_len);
-    iqs_7222c_i2c_stop();
-    delay(20);
+    this->i2c_stop_and_delay_();
     if (addr_size == 2) {
       err = this->read_register16(*((uint16_t *) addr), data, data_len, false);
     } else {
@@ -691,29 +587,5 @@ void IQS7222CComponent::iqs_7222c_i2c_read_registers(uint8_t *addr, uint16_t add
     }
   }
 }
-
-void IQS7222CComponent::iqs_7222c_i2c_stop(void) {
-  uint16_t stop_byte = 0x00FF;
-  this->bus_->write(address_, (uint8_t *) &stop_byte, 2, true);
-}
-
-void IQS7222CComponent::iqs_7222c_i2c_write(uint8_t *data, uint16_t data_len) {
-  this->bus_->write(address_, data, data_len, true);
-}
-
-/**
- * @brief Do not send stop after writing
- *
- * @param data
- * @param data_len
- */
-void IQS7222CComponent::iqs_7222c_i2c_write_cont(uint8_t *data, uint16_t data_len) {
-  this->bus_->write(address_, data, data_len, false);
-}
-
-void IQS7222CComponent::iqs_7222c_i2c_read(uint8_t *data, uint16_t data_len) {
-  this->bus_->read(address_, data, data_len);
-}
-
 }  // namespace iqs7222c
 }  // namespace esphome
