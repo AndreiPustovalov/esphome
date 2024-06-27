@@ -32,55 +32,47 @@ static const uint16_t global_cycle_setup[4] = {
     IQS_7222C_GLOBAL_CYCLE_SETUP, (GLOBAL_CYCLE_SETUP_1 << 8 | GLOBAL_CYCLE_SETUP_0),
     (FINE_DIVIDER_PRELOAD | COARSE_DIVIDER_PRELOAD), (COMPENSATION_PRELOAD_1 | COMPENSATION_PRELOAD_0)};
 
-static const uint16_t button_setup_0[4] = {(IQS_7222C_BUTTON_SETUP_0),
-                                           (BUTTON_0_ENTER_EXIT << 8 | BUTTON_0_PROX_THRESHOLD),
-                                           (BUTTON_0_TOUCH_HYSTERESIS << 8 | BUTTON_0_TOUCH_THRESHOLD),
-                                           (BUTTON_0_TOUCH_EVENT_TIMEOUT << 8 | BUTTON_0_PROX_EVENT_TIMEOUT)};
+static uint16_t button_setup[IQS7222C_MAX_BUTTONS][4] = {
+    {(IQS_7222C_BUTTON_SETUP_0), (BUTTON_0_ENTER_EXIT << 8 | BUTTON_0_PROX_THRESHOLD),
+     (BUTTON_0_TOUCH_HYSTERESIS << 8 | BUTTON_0_TOUCH_THRESHOLD),
+     (BUTTON_0_TOUCH_EVENT_TIMEOUT << 8 | BUTTON_0_PROX_EVENT_TIMEOUT)},
 
-static const uint16_t button_setup_1[4] = {(IQS_7222C_BUTTON_SETUP_1),
-                                           (BUTTON_1_ENTER_EXIT << 8 | BUTTON_1_PROX_THRESHOLD),
-                                           (BUTTON_1_TOUCH_HYSTERESIS << 8 | BUTTON_1_TOUCH_THRESHOLD),
-                                           (BUTTON_1_TOUCH_EVENT_TIMEOUT << 8 | BUTTON_1_PROX_EVENT_TIMEOUT)};
+    {(IQS_7222C_BUTTON_SETUP_1), (BUTTON_1_ENTER_EXIT << 8 | BUTTON_1_PROX_THRESHOLD),
+     (BUTTON_1_TOUCH_HYSTERESIS << 8 | BUTTON_1_TOUCH_THRESHOLD),
+     (BUTTON_1_TOUCH_EVENT_TIMEOUT << 8 | BUTTON_1_PROX_EVENT_TIMEOUT)},
 
-static const uint16_t button_setup_2[4] = {(IQS_7222C_BUTTON_SETUP_2),
-                                           (BUTTON_2_ENTER_EXIT << 8 | BUTTON_2_PROX_THRESHOLD),
-                                           (BUTTON_2_TOUCH_HYSTERESIS << 8 | BUTTON_2_TOUCH_THRESHOLD),
-                                           (BUTTON_2_TOUCH_EVENT_TIMEOUT << 8 | BUTTON_2_PROX_EVENT_TIMEOUT)};
+    {(IQS_7222C_BUTTON_SETUP_2), (BUTTON_2_ENTER_EXIT << 8 | BUTTON_2_PROX_THRESHOLD),
+     (BUTTON_2_TOUCH_HYSTERESIS << 8 | BUTTON_2_TOUCH_THRESHOLD),
+     (BUTTON_2_TOUCH_EVENT_TIMEOUT << 8 | BUTTON_2_PROX_EVENT_TIMEOUT)},
 
-static const uint16_t button_setup_3[4] = {(IQS_7222C_BUTTON_SETUP_3),
-                                           (BUTTON_3_ENTER_EXIT << 8 | BUTTON_3_PROX_THRESHOLD),
-                                           (BUTTON_3_TOUCH_HYSTERESIS << 8 | BUTTON_3_TOUCH_THRESHOLD),
-                                           (BUTTON_3_TOUCH_EVENT_TIMEOUT << 8 | BUTTON_3_PROX_EVENT_TIMEOUT)};
+    {(IQS_7222C_BUTTON_SETUP_3), (BUTTON_3_ENTER_EXIT << 8 | BUTTON_3_PROX_THRESHOLD),
+     (BUTTON_3_TOUCH_HYSTERESIS << 8 | BUTTON_3_TOUCH_THRESHOLD),
+     (BUTTON_3_TOUCH_EVENT_TIMEOUT << 8 | BUTTON_3_PROX_EVENT_TIMEOUT)},
 
-static const uint16_t button_setup_4[4] = {(IQS_7222C_BUTTON_SETUP_4),
-                                           (BUTTON_4_ENTER_EXIT << 8 | BUTTON_4_PROX_THRESHOLD),
-                                           (BUTTON_4_TOUCH_HYSTERESIS << 8 | BUTTON_4_TOUCH_THRESHOLD),
-                                           (BUTTON_4_TOUCH_EVENT_TIMEOUT << 8 | BUTTON_4_PROX_EVENT_TIMEOUT)};
+    {(IQS_7222C_BUTTON_SETUP_4), (BUTTON_4_ENTER_EXIT << 8 | BUTTON_4_PROX_THRESHOLD),
+     (BUTTON_4_TOUCH_HYSTERESIS << 8 | BUTTON_4_TOUCH_THRESHOLD),
+     (BUTTON_4_TOUCH_EVENT_TIMEOUT << 8 | BUTTON_4_PROX_EVENT_TIMEOUT)},
 
-static const uint16_t button_setup_5[4] = {(IQS_7222C_BUTTON_SETUP_5),
-                                           (BUTTON_5_ENTER_EXIT << 8 | BUTTON_5_PROX_THRESHOLD),
-                                           (BUTTON_5_TOUCH_HYSTERESIS << 8 | BUTTON_5_TOUCH_THRESHOLD),
-                                           (BUTTON_5_TOUCH_EVENT_TIMEOUT << 8 | BUTTON_5_PROX_EVENT_TIMEOUT)};
+    {(IQS_7222C_BUTTON_SETUP_5), (BUTTON_5_ENTER_EXIT << 8 | BUTTON_5_PROX_THRESHOLD),
+     (BUTTON_5_TOUCH_HYSTERESIS << 8 | BUTTON_5_TOUCH_THRESHOLD),
+     (BUTTON_5_TOUCH_EVENT_TIMEOUT << 8 | BUTTON_5_PROX_EVENT_TIMEOUT)},
 
-static const uint16_t button_setup_6[4] = {(IQS_7222C_BUTTON_SETUP_6),
-                                           (BUTTON_6_ENTER_EXIT << 8 | BUTTON_6_PROX_THRESHOLD),
-                                           (BUTTON_6_TOUCH_HYSTERESIS << 8 | BUTTON_6_TOUCH_THRESHOLD),
-                                           (BUTTON_6_TOUCH_EVENT_TIMEOUT << 8 | BUTTON_6_PROX_EVENT_TIMEOUT)};
+    {(IQS_7222C_BUTTON_SETUP_6), (BUTTON_6_ENTER_EXIT << 8 | BUTTON_6_PROX_THRESHOLD),
+     (BUTTON_6_TOUCH_HYSTERESIS << 8 | BUTTON_6_TOUCH_THRESHOLD),
+     (BUTTON_6_TOUCH_EVENT_TIMEOUT << 8 | BUTTON_6_PROX_EVENT_TIMEOUT)},
 
-static const uint16_t button_setup_7[4] = {(IQS_7222C_BUTTON_SETUP_7),
-                                           (BUTTON_7_ENTER_EXIT << 8 | BUTTON_7_PROX_THRESHOLD),
-                                           (BUTTON_7_TOUCH_HYSTERESIS << 8 | BUTTON_7_TOUCH_THRESHOLD),
-                                           (BUTTON_7_TOUCH_EVENT_TIMEOUT << 8 | BUTTON_7_PROX_EVENT_TIMEOUT)};
+    {(IQS_7222C_BUTTON_SETUP_7), (BUTTON_7_ENTER_EXIT << 8 | BUTTON_7_PROX_THRESHOLD),
+     (BUTTON_7_TOUCH_HYSTERESIS << 8 | BUTTON_7_TOUCH_THRESHOLD),
+     (BUTTON_7_TOUCH_EVENT_TIMEOUT << 8 | BUTTON_7_PROX_EVENT_TIMEOUT)},
 
-static const uint16_t button_setup_8[4] = {(IQS_7222C_BUTTON_SETUP_8),
-                                           (BUTTON_8_ENTER_EXIT << 8 | BUTTON_8_PROX_THRESHOLD),
-                                           (BUTTON_8_TOUCH_HYSTERESIS << 8 | BUTTON_8_TOUCH_THRESHOLD),
-                                           (BUTTON_8_TOUCH_EVENT_TIMEOUT << 8 | BUTTON_8_PROX_EVENT_TIMEOUT)};
+    {(IQS_7222C_BUTTON_SETUP_8), (BUTTON_8_ENTER_EXIT << 8 | BUTTON_8_PROX_THRESHOLD),
+     (BUTTON_8_TOUCH_HYSTERESIS << 8 | BUTTON_8_TOUCH_THRESHOLD),
+     (BUTTON_8_TOUCH_EVENT_TIMEOUT << 8 | BUTTON_8_PROX_EVENT_TIMEOUT)},
 
-static const uint16_t button_setup_9[4] = {(IQS_7222C_BUTTON_SETUP_9),
-                                           (BUTTON_9_ENTER_EXIT << 8 | BUTTON_9_PROX_THRESHOLD),
-                                           (BUTTON_9_TOUCH_HYSTERESIS << 8 | BUTTON_9_TOUCH_THRESHOLD),
-                                           (BUTTON_9_TOUCH_EVENT_TIMEOUT << 8 | BUTTON_9_PROX_EVENT_TIMEOUT)};
+    {(IQS_7222C_BUTTON_SETUP_9), (BUTTON_9_ENTER_EXIT << 8 | BUTTON_9_PROX_THRESHOLD),
+     (BUTTON_9_TOUCH_HYSTERESIS << 8 | BUTTON_9_TOUCH_THRESHOLD),
+     (BUTTON_9_TOUCH_EVENT_TIMEOUT << 8 | BUTTON_9_PROX_EVENT_TIMEOUT)},
+};
 
 static const uint16_t ch_setup_0[7] = {
     (IQS_7222C_CHANNEL_0_SETUP),
@@ -197,45 +189,17 @@ static const uint16_t slider_wheel_setup_0[11] = {(IQS_7222C_SLIDER_0_SETUP),
                                                   (SLIDER0_DELTA2_1 << 8 | SLIDER0_DELTA2_0),
                                                   (SLIDER0_DELTA3_1 << 8 | SLIDER0_DELTA3_0)};
 
-static const uint16_t slider_wheel_setup_1[11] = {
-    (IQS_7222C_SLIDER_1_SETUP),
-    (SLIDER1_LOWER_CAL << 8 | SLIDER1SETUP_GENERAL),
-    (SLIDER1_BOTTOM_SPEED << 8 | SLIDER1_UPPER_CAL),
-    (SLIDER1_TOPSPEED_1 << 8 | SLIDER1_TOPSPEED_0),
-    (SLIDER1_RESOLUTION_1 << 8 | SLIDER1_RESOLUTION_0 << 8),
-    (SLIDER1_ENABLE_MASK_8_9 << 8 | SLIDER1_ENABLE_MASK_0_7),
-    (SLIDER1_ENABLESTATUSLINK_1 << 8 | SLIDER1_ENABLESTATUSLINK_0),
-    (SLIDER1_DELTA0_1 << 8 | SLIDER1_DELTA0_0),
-    (SLIDER1_DELTA1_1 << 8 | SLIDER1_DELTA1_0),
-    (SLIDER1_DELTA2_1 << 8 | SLIDER1_DELTA2_0),
-    (SLIDER1_DELTA3_1 << 8 | SLIDER1_DELTA3_0),
-};
-// // static const uint16_t slider_wheel_setup_0_to_1[21] =
-// //     {
-// //         (IQS_7222C_SLIDER_0_SETUP),
-// //         (SLIDER0_LOWER_CAL << 8 | SLIDER0SETUP_GENERAL),
-// //         (SLIDER0_BOTTOM_SPEED << 8 | SLIDER0_UPPER_CAL),
-// //         (SLIDER0_TOPSPEED_1 << 8 | SLIDER0_TOPSPEED_0),
-// //         (SLIDER0_RESOLUTION_1 << 8 | SLIDER0_RESOLUTION_0 << 8),
-// //         (SLIDER0_ENABLE_MASK_8_9 << 8 | SLIDER0_ENABLE_MASK_0_7),
-// //         (SLIDER0_ENABLESTATUSLINK_1 << 8 | SLIDER0_ENABLESTATUSLINK_0),
-// //         (SLIDER0_DELTA0_1 << 8 | SLIDER0_DELTA0_0),
-// //         (SLIDER0_DELTA1_1 << 8 | SLIDER0_DELTA1_0),
-// //         (SLIDER0_DELTA2_1 << 8 | SLIDER0_DELTA2_0),
-// //         (SLIDER0_DELTA3_1 << 8 | SLIDER0_DELTA3_0),
-
-// //         (SLIDER1_LOWER_CAL << 8 | SLIDER1SETUP_GENERAL),
-// //         (SLIDER1_BOTTOM_SPEED << 8 | SLIDER1_UPPER_CAL),
-// //         (SLIDER1_TOPSPEED_1 << 8 | SLIDER1_TOPSPEED_0),
-// //         (SLIDER1_RESOLUTION_1 << 8 | SLIDER1_RESOLUTION_0 << 8),
-// //         (SLIDER1_ENABLE_MASK_8_9 << 8 | SLIDER1_ENABLE_MASK_0_7),
-// //         (SLIDER1_ENABLESTATUSLINK_1 << 8 | SLIDER1_ENABLESTATUSLINK_0),
-// //         (SLIDER1_DELTA0_1 << 8 | SLIDER1_DELTA0_0),
-// //         (SLIDER1_DELTA1_1 << 8 | SLIDER1_DELTA1_0),
-// //         (SLIDER1_DELTA2_1 << 8 | SLIDER1_DELTA2_0),
-// //         (SLIDER1_DELTA3_1 << 8 | SLIDER1_DELTA3_0),
-
-// // };
+static const uint16_t slider_wheel_setup_1[11] = {(IQS_7222C_SLIDER_1_SETUP),
+                                                  (SLIDER1_LOWER_CAL << 8 | SLIDER1SETUP_GENERAL),
+                                                  (SLIDER1_BOTTOM_SPEED << 8 | SLIDER1_UPPER_CAL),
+                                                  (SLIDER1_TOPSPEED_1 << 8 | SLIDER1_TOPSPEED_0),
+                                                  (SLIDER1_RESOLUTION_1 << 8 | SLIDER1_RESOLUTION_0 << 8),
+                                                  (SLIDER1_ENABLE_MASK_8_9 << 8 | SLIDER1_ENABLE_MASK_0_7),
+                                                  (SLIDER1_ENABLESTATUSLINK_1 << 8 | SLIDER1_ENABLESTATUSLINK_0),
+                                                  (SLIDER1_DELTA0_1 << 8 | SLIDER1_DELTA0_0),
+                                                  (SLIDER1_DELTA1_1 << 8 | SLIDER1_DELTA1_0),
+                                                  (SLIDER1_DELTA2_1 << 8 | SLIDER1_DELTA2_0),
+                                                  (SLIDER1_DELTA3_1 << 8 | SLIDER1_DELTA3_0)};
 
 static uint16_t gpio_setting_0[4] = {
     (IQS_7222C_GPIO_0_SETTING),
@@ -431,6 +395,15 @@ void IQS7222CComponent::loop() {
   }
 }
 
+void IQS7222CComponent::set_button_config(uint8_t nr, uint8_t prox_thr, uint8_t enter_exit, uint8_t touch_thr,
+                                          uint8_t touch_hy, uint8_t prox_ev_tm, uint8_t touch_ev_tm) {
+  if (nr < IQS7222C_MAX_BUTTONS) {
+    button_setup[nr][1] = (enter_exit << 8 | prox_thr);
+    button_setup[nr][2] = (touch_hy << 8 | touch_thr);
+    button_setup[nr][3] = (touch_ev_tm << 8 | prox_ev_tm);
+  }
+};
+
 void IQS7222CComponent::register_button(IQS7222CButton *button) {
   if (button->get_channel() < IQS7222C_MAX_BUTTONS) {
     this->buttons[button->get_channel()].push_back(button);
@@ -510,16 +483,11 @@ void IQS7222CComponent::write_settings_() {
   this->i2c_write_cont_((uint8_t *) &cycle_setup_3, sizeof(cycle_setup_3));
   this->i2c_write_cont_((uint8_t *) &cycle_setup_4, sizeof(cycle_setup_4));
   this->i2c_write_cont_((uint8_t *) &global_cycle_setup, sizeof(global_cycle_setup));
-  this->i2c_write_cont_((uint8_t *) &button_setup_0, sizeof(button_setup_0));
-  this->i2c_write_cont_((uint8_t *) &button_setup_1, sizeof(button_setup_1));
-  this->i2c_write_cont_((uint8_t *) &button_setup_2, sizeof(button_setup_2));
-  this->i2c_write_cont_((uint8_t *) &button_setup_3, sizeof(button_setup_3));
-  this->i2c_write_cont_((uint8_t *) &button_setup_4, sizeof(button_setup_4));
-  this->i2c_write_cont_((uint8_t *) &button_setup_5, sizeof(button_setup_5));
-  this->i2c_write_cont_((uint8_t *) &button_setup_6, sizeof(button_setup_6));
-  this->i2c_write_cont_((uint8_t *) &button_setup_7, sizeof(button_setup_7));
-  this->i2c_write_cont_((uint8_t *) &button_setup_8, sizeof(button_setup_8));
-  this->i2c_write_cont_((uint8_t *) &button_setup_9, sizeof(button_setup_9));
+
+  for (uint8_t i = 0; i < IQS7222C_MAX_BUTTONS; i++) {
+    this->i2c_write_cont_((uint8_t *) &button_setup[i], sizeof(button_setup[i]));
+  }
+
   // this->i2c_write_cont_((uint8_t *)&button_stup_0_to_4, sizeof(button_stup_0_to_4));
   // this->i2c_write_cont_((uint8_t *)&button_stup_5_to_9, sizeof(button_stup_5_to_9));
 

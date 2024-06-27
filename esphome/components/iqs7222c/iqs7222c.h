@@ -44,6 +44,9 @@ class IQS7222CComponent : public Component, public i2c::I2CDevice {
   void set_enable_test_mode(bool enable_test_mode) { this->test_mode_ = enable_test_mode; }
   void set_init_delay_ms(uint16_t delay_ms) { this->init_delay_ms_ = delay_ms; }
 
+  void set_button_config(uint8_t nr, uint8_t prox_thr, uint8_t enter_exit, uint8_t touch_thr, uint8_t touch_hy,
+                         uint8_t prox_ev_tm, uint8_t touch_ev_tm);
+
   void register_button(IQS7222CButton *btn);
 
   void emulate_touch(uint8_t btn);
