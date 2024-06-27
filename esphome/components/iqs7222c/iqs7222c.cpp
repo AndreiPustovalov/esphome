@@ -360,8 +360,18 @@ void IQS7222CComponent::loop() {
 
       // RDY low = communication window opened
       if (this->test_mode_ || this->rdy_read_() == 0) {
+        bool report_required{false};
+
+        static uint32_t last_report{0};
+        uint32_t now = millis();
+        if (now - last_report > 1000) {
+          last_report = now;
+          report_required = true;
+        }
+
         if (!this->test_mode_) {
-          read_device_states_();
+          this->read_device_states_();
+          this->i2c_stop_();
         }
 
         if (this->device_states_prev_.touch.value != this->device_states_.touch.value) {
@@ -372,9 +382,12 @@ void IQS7222CComponent::loop() {
           ESP_LOGD(TAG, "Status event: %d", this->device_states_.status.value);
         }
 
-        if (new_touch_data_available) {
-          ESP_LOGD(TAG, "New touch data available");
+        if (new_touch_data_available || report_required) {
+          //  ESP_LOGD(TAG, "New touch data available");
+          //  this->i2c_stop_and_delay_();
+          WAIT_FOR_RDY_WINDOW();
           this->read_touch_counts_();
+          this->i2c_stop_();
 
           new_touch_data_available = false;
           this->process_touch_data_();
@@ -575,14 +588,20 @@ void IQS7222CComponent::read_touch_event_() {
 
 void IQS7222CComponent::read_touch_counts_() {
   uint16_t counts[IQS7222C_MAX_CHANNELS] = {0};
+  uint16_t lta[IQS7222C_MAX_CHANNELS] = {0};
+
   uint8_t reg_addr = IQS_7222C_CHANNEL_0_COUNTS;
-  WAIT_FOR_RDY_WINDOW();
   this->i2c_read_registers_(&reg_addr, 1, (uint8_t *) &counts, IQS7222C_MAX_CHANNELS * 2);
   this->i2c_stop_();
-  ESP_LOGD(TAG, "counts ch0-ch4 0x%04x 0x%04x 0x%04x 0x%04x 0x%04x", counts[0], counts[1], counts[2], counts[3],
-           counts[4]);
-  ESP_LOGD(TAG, "counts ch5-ch9 0x%04x 0x%04x 0x%04x 0x%04x 0x%04x", counts[5], counts[6], counts[7], counts[8],
-           counts[9]);
+
+  WAIT_FOR_RDY_WINDOW();
+  reg_addr = IQS_7222C_CHANNEL_0_LTA;
+  this->i2c_read_registers_(&reg_addr, 1, (uint8_t *) &lta, IQS7222C_MAX_CHANNELS * 2);
+
+  ESP_LOGD(TAG, "counts ch0-ch9 %5d,%5d,%5d,%5d,%5d,%5d,%5d,%5d,%5d,%5d", counts[0], counts[1], counts[2], counts[3],
+           counts[4], counts[5], counts[6], counts[7], counts[8], counts[9]);
+  ESP_LOGD(TAG, "lta    ch0-ch9 %5d,%5d,%5d,%5d,%5d,%5d,%5d,%5d,%5d,%5d", lta[0], lta[1], lta[2], lta[3], lta[4],
+           lta[5], lta[6], lta[7], lta[8], lta[9]);
 }
 
 void IQS7222CComponent::process_touch_data_() {
