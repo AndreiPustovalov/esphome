@@ -74,105 +74,97 @@ static uint16_t button_setup[IQS7222C_MAX_BUTTONS][4] = {
      (BUTTON_9_TOUCH_EVENT_TIMEOUT << 8 | BUTTON_9_PROX_EVENT_TIMEOUT)},
 };
 
-static const uint16_t ch_setup_0[7] = {
-    (IQS_7222C_CHANNEL_0_SETUP),
-    (CH0_SETUP_1 << 8 | CH0_SETUP_0),
-    (CH0_ATI_SETTINGS_1 << 8 | CH0_ATI_SETTINGS_0),
-    (CH0_MULTIPLIERS_1 << 8 | CH0_MULTIPLIERS_0),
-    (CH0_ATI_COMPENSATION_1 << 8 | CH0_ATI_COMPENSATION_0),
-    (CH0_REF_PTR_1 << 8 | CH0_REF_PTR_0),
-    (CH0_REFMASK_1 << 8 | CH0_REFMASK_0),
-};
+static uint16_t ch_setup[IQS7222C_MAX_CHANNELS][7] = {{
+                                                          (IQS_7222C_CHANNEL_0_SETUP),
+                                                          (CH0_SETUP_1 << 8 | CH0_SETUP_0),
+                                                          (CH0_ATI_SETTINGS_1 << 8 | CH0_ATI_SETTINGS_0),
+                                                          (CH0_MULTIPLIERS_1 << 8 | CH0_MULTIPLIERS_0),
+                                                          (CH0_ATI_COMPENSATION_1 << 8 | CH0_ATI_COMPENSATION_0),
+                                                          (CH0_REF_PTR_1 << 8 | CH0_REF_PTR_0),
+                                                          (CH0_REFMASK_1 << 8 | CH0_REFMASK_0),
+                                                      },
 
-static const uint16_t ch_setup_1[7] = {
-    (IQS_7222C_CHANNEL_1_SETUP),
-    (CH1_SETUP_1 << 8 | CH1_SETUP_0),
-    (CH1_ATI_SETTINGS_1 << 8 | CH1_ATI_SETTINGS_0),
-    (CH1_MULTIPLIERS_1 << 8 | CH1_MULTIPLIERS_0),
-    (CH1_ATI_COMPENSATION_1 << 8 | CH1_ATI_COMPENSATION_0),
-    (CH1_REF_PTR_1 << 8 | CH1_REF_PTR_0),
-    (CH1_REFMASK_1 << 8 | CH1_REFMASK_0),
-};
-
-static const uint16_t ch_setup_2[7] = {
-    (IQS_7222C_CHANNEL_2_SETUP),
-    (CH2_SETUP_1 << 8 | CH2_SETUP_0),
-    (CH2_ATI_SETTINGS_1 << 8 | CH2_ATI_SETTINGS_0),
-    (CH2_MULTIPLIERS_1 << 8 | CH2_MULTIPLIERS_0),
-    (CH2_ATI_COMPENSATION_1 << 8 | CH2_ATI_COMPENSATION_0),
-    (CH2_REF_PTR_1 << 8 | CH2_REF_PTR_0),
-    (CH2_REFMASK_1 << 8 | CH2_REFMASK_0),
-};
-
-static const uint16_t ch_setup_3[7] = {
-    (IQS_7222C_CHANNEL_3_SETUP),
-    (CH3_SETUP_1 << 8 | CH3_SETUP_0),
-    (CH3_ATI_SETTINGS_1 << 8 | CH3_ATI_SETTINGS_0),
-    (CH3_MULTIPLIERS_1 << 8 | CH3_MULTIPLIERS_0),
-    (CH3_ATI_COMPENSATION_1 << 8 | CH3_ATI_COMPENSATION_0),
-    (CH3_REF_PTR_1 << 8 | CH3_REF_PTR_0),
-    (CH3_REFMASK_1 << 8 | CH3_REFMASK_0),
-};
-
-static const uint16_t ch_setup_4[7] = {
-    (IQS_7222C_CHANNEL_4_SETUP),
-    (CH4_SETUP_1 << 8 | CH4_SETUP_0),
-    (CH4_ATI_SETTINGS_1 << 8 | CH4_ATI_SETTINGS_0),
-    (CH4_MULTIPLIERS_1 << 8 | CH4_MULTIPLIERS_0),
-    (CH4_ATI_COMPENSATION_1 << 8 | CH4_ATI_COMPENSATION_0),
-    (CH4_REF_PTR_1 << 8 | CH4_REF_PTR_0),
-    (CH4_REFMASK_1 << 8 | CH4_REFMASK_0),
-};
-
-static const uint16_t ch_setup_5[7] = {
-    (IQS_7222C_CHANNEL_5_SETUP),
-    (CH5_SETUP_1 << 8 | CH5_SETUP_0),
-    (CH5_ATI_SETTINGS_1 << 8 | CH5_ATI_SETTINGS_0),
-    (CH5_MULTIPLIERS_1 << 8 | CH5_MULTIPLIERS_0),
-    (CH5_ATI_COMPENSATION_1 << 8 | CH5_ATI_COMPENSATION_0),
-    (CH5_REF_PTR_1 << 8 | CH5_REF_PTR_0),
-    (CH5_REFMASK_1 << 8 | CH5_REFMASK_0),
-};
-
-static const uint16_t ch_setup_6[7] = {
-    (IQS_7222C_CHANNEL_6_SETUP),
-    (CH6_SETUP_1 << 8 | CH6_SETUP_0),
-    (CH6_ATI_SETTINGS_1 << 8 | CH6_ATI_SETTINGS_0),
-    (CH6_MULTIPLIERS_1 << 8 | CH6_MULTIPLIERS_0),
-    (CH6_ATI_COMPENSATION_1 << 8 | CH6_ATI_COMPENSATION_0),
-    (CH6_REF_PTR_1 << 8 | CH6_REF_PTR_0),
-    (CH6_REFMASK_1 << 8 | CH6_REFMASK_0),
-};
-
-static const uint16_t ch_setup_7[7] = {
-    (IQS_7222C_CHANNEL_7_SETUP),
-    (CH7_SETUP_1 << 8 | CH7_SETUP_0),
-    (CH7_ATI_SETTINGS_1 << 8 | CH7_ATI_SETTINGS_0),
-    (CH7_MULTIPLIERS_1 << 8 | CH7_MULTIPLIERS_0),
-    (CH7_ATI_COMPENSATION_1 << 8 | CH7_ATI_COMPENSATION_0),
-    (CH7_REF_PTR_1 << 8 | CH7_REF_PTR_0),
-    (CH7_REFMASK_1 << 8 | CH7_REFMASK_0),
-};
-
-static const uint16_t ch_setup_8[7] = {
-    (IQS_7222C_CHANNEL_8_SETUP),
-    (CH8_SETUP_1 << 8 | CH8_SETUP_0),
-    (CH8_ATI_SETTINGS_1 << 8 | CH8_ATI_SETTINGS_0),
-    (CH8_MULTIPLIERS_1 << 8 | CH8_MULTIPLIERS_0),
-    (CH8_ATI_COMPENSATION_1 << 8 | CH8_ATI_COMPENSATION_0),
-    (CH8_REF_PTR_1 << 8 | CH8_REF_PTR_0),
-    (CH8_REFMASK_1 << 8 | CH8_REFMASK_0),
-};
-
-static const uint16_t ch_setup_9[7] = {
-    (IQS_7222C_CHANNEL_9_SETUP),
-    (CH9_SETUP_1 << 8 | CH9_SETUP_0),
-    (CH9_ATI_SETTINGS_1 << 8 | CH9_ATI_SETTINGS_0),
-    (CH9_MULTIPLIERS_1 << 8 | CH9_MULTIPLIERS_0),
-    (CH9_ATI_COMPENSATION_1 << 8 | CH9_ATI_COMPENSATION_0),
-    (CH9_REF_PTR_1 << 8 | CH9_REF_PTR_0),
-    (CH9_REFMASK_1 << 8 | CH9_REFMASK_0),
-};
+                                                      {
+                                                          (IQS_7222C_CHANNEL_1_SETUP),
+                                                          (CH1_SETUP_1 << 8 | CH1_SETUP_0),
+                                                          (CH1_ATI_SETTINGS_1 << 8 | CH1_ATI_SETTINGS_0),
+                                                          (CH1_MULTIPLIERS_1 << 8 | CH1_MULTIPLIERS_0),
+                                                          (CH1_ATI_COMPENSATION_1 << 8 | CH1_ATI_COMPENSATION_0),
+                                                          (CH1_REF_PTR_1 << 8 | CH1_REF_PTR_0),
+                                                          (CH1_REFMASK_1 << 8 | CH1_REFMASK_0),
+                                                      },
+                                                      {
+                                                          (IQS_7222C_CHANNEL_2_SETUP),
+                                                          (CH2_SETUP_1 << 8 | CH2_SETUP_0),
+                                                          (CH2_ATI_SETTINGS_1 << 8 | CH2_ATI_SETTINGS_0),
+                                                          (CH2_MULTIPLIERS_1 << 8 | CH2_MULTIPLIERS_0),
+                                                          (CH2_ATI_COMPENSATION_1 << 8 | CH2_ATI_COMPENSATION_0),
+                                                          (CH2_REF_PTR_1 << 8 | CH2_REF_PTR_0),
+                                                          (CH2_REFMASK_1 << 8 | CH2_REFMASK_0),
+                                                      },
+                                                      {
+                                                          (IQS_7222C_CHANNEL_3_SETUP),
+                                                          (CH3_SETUP_1 << 8 | CH3_SETUP_0),
+                                                          (CH3_ATI_SETTINGS_1 << 8 | CH3_ATI_SETTINGS_0),
+                                                          (CH3_MULTIPLIERS_1 << 8 | CH3_MULTIPLIERS_0),
+                                                          (CH3_ATI_COMPENSATION_1 << 8 | CH3_ATI_COMPENSATION_0),
+                                                          (CH3_REF_PTR_1 << 8 | CH3_REF_PTR_0),
+                                                          (CH3_REFMASK_1 << 8 | CH3_REFMASK_0),
+                                                      },
+                                                      {
+                                                          (IQS_7222C_CHANNEL_4_SETUP),
+                                                          (CH4_SETUP_1 << 8 | CH4_SETUP_0),
+                                                          (CH4_ATI_SETTINGS_1 << 8 | CH4_ATI_SETTINGS_0),
+                                                          (CH4_MULTIPLIERS_1 << 8 | CH4_MULTIPLIERS_0),
+                                                          (CH4_ATI_COMPENSATION_1 << 8 | CH4_ATI_COMPENSATION_0),
+                                                          (CH4_REF_PTR_1 << 8 | CH4_REF_PTR_0),
+                                                          (CH4_REFMASK_1 << 8 | CH4_REFMASK_0),
+                                                      },
+                                                      {
+                                                          (IQS_7222C_CHANNEL_5_SETUP),
+                                                          (CH5_SETUP_1 << 8 | CH5_SETUP_0),
+                                                          (CH5_ATI_SETTINGS_1 << 8 | CH5_ATI_SETTINGS_0),
+                                                          (CH5_MULTIPLIERS_1 << 8 | CH5_MULTIPLIERS_0),
+                                                          (CH5_ATI_COMPENSATION_1 << 8 | CH5_ATI_COMPENSATION_0),
+                                                          (CH5_REF_PTR_1 << 8 | CH5_REF_PTR_0),
+                                                          (CH5_REFMASK_1 << 8 | CH5_REFMASK_0),
+                                                      },
+                                                      {
+                                                          (IQS_7222C_CHANNEL_6_SETUP),
+                                                          (CH6_SETUP_1 << 8 | CH6_SETUP_0),
+                                                          (CH6_ATI_SETTINGS_1 << 8 | CH6_ATI_SETTINGS_0),
+                                                          (CH6_MULTIPLIERS_1 << 8 | CH6_MULTIPLIERS_0),
+                                                          (CH6_ATI_COMPENSATION_1 << 8 | CH6_ATI_COMPENSATION_0),
+                                                          (CH6_REF_PTR_1 << 8 | CH6_REF_PTR_0),
+                                                          (CH6_REFMASK_1 << 8 | CH6_REFMASK_0),
+                                                      },
+                                                      {
+                                                          (IQS_7222C_CHANNEL_7_SETUP),
+                                                          (CH7_SETUP_1 << 8 | CH7_SETUP_0),
+                                                          (CH7_ATI_SETTINGS_1 << 8 | CH7_ATI_SETTINGS_0),
+                                                          (CH7_MULTIPLIERS_1 << 8 | CH7_MULTIPLIERS_0),
+                                                          (CH7_ATI_COMPENSATION_1 << 8 | CH7_ATI_COMPENSATION_0),
+                                                          (CH7_REF_PTR_1 << 8 | CH7_REF_PTR_0),
+                                                          (CH7_REFMASK_1 << 8 | CH7_REFMASK_0),
+                                                      },
+                                                      {
+                                                          (IQS_7222C_CHANNEL_8_SETUP),
+                                                          (CH8_SETUP_1 << 8 | CH8_SETUP_0),
+                                                          (CH8_ATI_SETTINGS_1 << 8 | CH8_ATI_SETTINGS_0),
+                                                          (CH8_MULTIPLIERS_1 << 8 | CH8_MULTIPLIERS_0),
+                                                          (CH8_ATI_COMPENSATION_1 << 8 | CH8_ATI_COMPENSATION_0),
+                                                          (CH8_REF_PTR_1 << 8 | CH8_REF_PTR_0),
+                                                          (CH8_REFMASK_1 << 8 | CH8_REFMASK_0),
+                                                      },
+                                                      {
+                                                          (IQS_7222C_CHANNEL_9_SETUP),
+                                                          (CH9_SETUP_1 << 8 | CH9_SETUP_0),
+                                                          (CH9_ATI_SETTINGS_1 << 8 | CH9_ATI_SETTINGS_0),
+                                                          (CH9_MULTIPLIERS_1 << 8 | CH9_MULTIPLIERS_0),
+                                                          (CH9_ATI_COMPENSATION_1 << 8 | CH9_ATI_COMPENSATION_0),
+                                                          (CH9_REF_PTR_1 << 8 | CH9_REF_PTR_0),
+                                                          (CH9_REFMASK_1 << 8 | CH9_REFMASK_0),
+                                                      }};
 
 static const uint16_t filter_betas[3] = {(IQS_7222C_FILTER_BETAS), (LTA_BETA_FILTER << 8 | COUNTS_BETA_FILTER),
                                          (RESERVED_FILTER_0 << 8 | LTA_FAST_BETA_FILTER)};
@@ -382,6 +374,7 @@ void IQS7222CComponent::loop() {
 
         if (new_touch_data_available) {
           ESP_LOGD(TAG, "New touch data available");
+          this->read_touch_counts_();
 
           new_touch_data_available = false;
           this->process_touch_data_();
@@ -395,6 +388,11 @@ void IQS7222CComponent::loop() {
   }
 }
 
+/*
+  (BUTTON_0_ENTER_EXIT << 8 | BUTTON_0_PROX_THRESHOLD),
+  (BUTTON_0_TOUCH_HYSTERESIS << 8 | BUTTON_0_TOUCH_THRESHOLD),
+  (BUTTON_0_TOUCH_EVENT_TIMEOUT << 8 | BUTTON_0_PROX_EVENT_TIMEOUT)},
+*/
 void IQS7222CComponent::set_button_config(uint8_t nr, uint8_t prox_thr, uint8_t enter_exit, uint8_t touch_thr,
                                           uint8_t touch_hy, uint8_t prox_ev_tm, uint8_t touch_ev_tm) {
   if (nr < IQS7222C_MAX_BUTTONS) {
@@ -403,6 +401,28 @@ void IQS7222CComponent::set_button_config(uint8_t nr, uint8_t prox_thr, uint8_t 
     button_setup[nr][3] = (touch_ev_tm << 8 | prox_ev_tm);
   }
 };
+
+/*
+  (CH0_SETUP_1 << 8 | CH0_SETUP_0),
+  (CH0_ATI_SETTINGS_1 << 8 | CH0_ATI_SETTINGS_0),
+  (CH0_MULTIPLIERS_1 << 8 | CH0_MULTIPLIERS_0),
+  (CH0_ATI_COMPENSATION_1 << 8 | CH0_ATI_COMPENSATION_0),
+  (CH0_REF_PTR_1 << 8 | CH0_REF_PTR_0),
+  (CH0_REFMASK_1 << 8 | CH0_REFMASK_0),
+*/
+void IQS7222CComponent::set_channel_config(uint8_t nr, uint8_t setup_0, uint8_t setup_1, uint8_t ati_settings_0,
+                                           uint8_t ati_settings_1, uint8_t multipliers_0, uint8_t multipliers_1,
+                                           uint8_t ati_compensation_0, uint8_t ati_compensation_1, uint8_t ref_ptr_0,
+                                           uint8_t ref_ptr_1, uint8_t refmask_0, uint8_t refmask_1) {
+  if (nr < IQS7222C_MAX_CHANNELS) {
+    ch_setup[nr][1] = (setup_1 << 8 | setup_0);
+    ch_setup[nr][2] = (ati_settings_1 << 8 | ati_settings_0);
+    ch_setup[nr][3] = (multipliers_1 << 8 | multipliers_0);
+    ch_setup[nr][4] = (ati_compensation_1 << 8 | ati_compensation_0);
+    ch_setup[nr][5] = (ref_ptr_1 << 8 | ref_ptr_0);
+    ch_setup[nr][6] = (refmask_1 << 8 | refmask_0);
+  }
+}
 
 void IQS7222CComponent::register_button(IQS7222CButton *button) {
   if (button->get_channel() < IQS7222C_MAX_BUTTONS) {
@@ -475,6 +495,7 @@ void IQS7222CComponent::set_next_state_delayed_(State state, uint32_t delay_ms) 
 
 void IQS7222CComponent::write_settings_() {
   ESP_LOGV(TAG, "write_settings_()");
+  uint8_t i{0};
 
   WAIT_FOR_RDY_WINDOW();
   this->i2c_write_cont_((uint8_t *) &cycle_setup_0, sizeof(cycle_setup_0));
@@ -484,33 +505,22 @@ void IQS7222CComponent::write_settings_() {
   this->i2c_write_cont_((uint8_t *) &cycle_setup_4, sizeof(cycle_setup_4));
   this->i2c_write_cont_((uint8_t *) &global_cycle_setup, sizeof(global_cycle_setup));
 
-  for (uint8_t i = 0; i < IQS7222C_MAX_BUTTONS; i++) {
+  for (i = 0; i < IQS7222C_MAX_BUTTONS; i++) {
     this->i2c_write_cont_((uint8_t *) &button_setup[i], sizeof(button_setup[i]));
   }
 
-  // this->i2c_write_cont_((uint8_t *)&button_stup_0_to_4, sizeof(button_stup_0_to_4));
-  // this->i2c_write_cont_((uint8_t *)&button_stup_5_to_9, sizeof(button_stup_5_to_9));
-
-  // this->i2c_write_cont_((uint8_t *)&ch_setup_0_9, sizeof(ch_setup_0_9));
-  this->i2c_write_cont_((uint8_t *) &ch_setup_0, sizeof(ch_setup_0));
-  this->i2c_write_cont_((uint8_t *) &ch_setup_1, sizeof(ch_setup_1));
-  this->i2c_write_cont_((uint8_t *) &ch_setup_2, sizeof(ch_setup_2));
-  this->i2c_write_cont_((uint8_t *) &ch_setup_3, sizeof(ch_setup_3));
-  this->i2c_write_cont_((uint8_t *) &ch_setup_4, sizeof(ch_setup_4));
-  this->i2c_write_cont_((uint8_t *) &ch_setup_5, sizeof(ch_setup_5));
-  this->i2c_write_cont_((uint8_t *) &ch_setup_6, sizeof(ch_setup_6));
-  this->i2c_write_cont_((uint8_t *) &ch_setup_7, sizeof(ch_setup_7));
-  this->i2c_write_cont_((uint8_t *) &ch_setup_8, sizeof(ch_setup_8));
-  this->i2c_write_cont_((uint8_t *) &ch_setup_9, sizeof(ch_setup_9));
+  for (i = 0; i < IQS7222C_MAX_CHANNELS; i++) {
+    this->i2c_write_cont_((uint8_t *) &ch_setup[i], sizeof(ch_setup[i]));
+  }
 
   this->i2c_write_cont_((uint8_t *) &filter_betas, sizeof(filter_betas));
   this->i2c_write_cont_((uint8_t *) &slider_wheel_setup_0, sizeof(slider_wheel_setup_0));
   this->i2c_write_cont_((uint8_t *) &slider_wheel_setup_1, sizeof(slider_wheel_setup_1));
-  // this->i2c_write_cont_((uint8_t *)&slider_wheel_setup_0_to_1, sizeof(slider_wheel_setup_0_to_1));
-  // this->i2c_write_cont_((uint8_t *)&gpio_setting_0_to_2, sizeof(gpio_setting_0_to_2));
+
   this->i2c_write_cont_((uint8_t *) &gpio_setting_0, sizeof(gpio_setting_0));
   this->i2c_write_cont_((uint8_t *) &gpio_setting_1, sizeof(gpio_setting_1));
   this->i2c_write_cont_((uint8_t *) &gpio_setting_2, sizeof(gpio_setting_2));
+
   this->i2c_write_((uint8_t *) &pmu_sys_setting, sizeof(pmu_sys_setting));
   this->i2c_stop_and_delay_();
 
@@ -561,6 +571,18 @@ void IQS7222CComponent::read_touch_event_() {
     this->i2c_stop_();
     device_states_.touch.value = 0;
   }
+}
+
+void IQS7222CComponent::read_touch_counts_() {
+  uint16_t counts[IQS7222C_MAX_CHANNELS] = {0};
+  uint8_t reg_addr = IQS_7222C_CHANNEL_0_COUNTS;
+  WAIT_FOR_RDY_WINDOW();
+  this->i2c_read_registers_(&reg_addr, 1, (uint8_t *) &counts, IQS7222C_MAX_CHANNELS * 2);
+  this->i2c_stop_();
+  ESP_LOGD(TAG, "counts ch0-ch4 0x%04x 0x%04x 0x%04x 0x%04x 0x%04x", counts[0], counts[1], counts[2], counts[3],
+           counts[4]);
+  ESP_LOGD(TAG, "counts ch5-ch9 0x%04x 0x%04x 0x%04x 0x%04x 0x%04x", counts[5], counts[6], counts[7], counts[8],
+           counts[9]);
 }
 
 void IQS7222CComponent::process_touch_data_() {

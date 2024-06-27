@@ -14,6 +14,7 @@ namespace esphome {
 namespace iqs7222c {
 
 const uint8_t IQS7222C_MAX_BUTTONS = 10;
+const uint8_t IQS7222C_MAX_CHANNELS = 10;
 const uint16_t IQS7222C_PRODUCT_NR = 863;
 
 class IQS7222CButton : public binary_sensor::BinarySensor {
@@ -46,6 +47,24 @@ class IQS7222CComponent : public Component, public i2c::I2CDevice {
 
   void set_button_config(uint8_t nr, uint8_t prox_thr, uint8_t enter_exit, uint8_t touch_thr, uint8_t touch_hy,
                          uint8_t prox_ev_tm, uint8_t touch_ev_tm);
+  /*
+#define CH0_SETUP_0 0xF3
+#define CH0_SETUP_1 0x11
+#define CH0_ATI_SETTINGS_0 0x3D
+#define CH0_ATI_SETTINGS_1 0x64
+#define CH0_MULTIPLIERS_0 0x4A
+#define CH0_MULTIPLIERS_1 0x31
+#define CH0_ATI_COMPENSATION_0 0xFC
+#define CH0_ATI_COMPENSATION_1 0x61
+#define CH0_REF_PTR_0 0x00
+#define CH0_REF_PTR_1 0x00
+#define CH0_REFMASK_0 0x00
+#define CH0_REFMASK_1 0x00
+*/
+  void set_channel_config(uint8_t nr, uint8_t setup_0, uint8_t setup_1, uint8_t ati_settings_0, uint8_t ati_settings_1,
+                          uint8_t multipliers_0, uint8_t multipliers_1, uint8_t ati_compensation_0,
+                          uint8_t ati_compensation_1, uint8_t ref_ptr_0, uint8_t ref_ptr_1, uint8_t refmask_0,
+                          uint8_t refmask_1);
 
   void register_button(IQS7222CButton *btn);
 
@@ -80,6 +99,7 @@ class IQS7222CComponent : public Component, public i2c::I2CDevice {
   void read_product_version_();
   void read_device_states_();
   void read_touch_event_();
+  void read_touch_counts_();
 
   void process_touch_data_();
 

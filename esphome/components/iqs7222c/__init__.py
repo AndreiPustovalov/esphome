@@ -28,12 +28,62 @@ CONF_BUTTON_7 = "button_7"
 CONF_BUTTON_8 = "button_8"
 CONF_BUTTON_9 = "button_9"
 
+BUTTONS = [
+    CONF_BUTTON_0,
+    CONF_BUTTON_1,
+    CONF_BUTTON_2,
+    CONF_BUTTON_3,
+    CONF_BUTTON_4,
+    CONF_BUTTON_5,
+    CONF_BUTTON_6,
+    CONF_BUTTON_7,
+    CONF_BUTTON_8,
+    CONF_BUTTON_9,
+]
+
 CONF_PROX_THRESHOLD = "prox_threshold"
 CONF_ENTER_EXIT = "enter_exit"
 CONF_TOUCH_THRESHOLD = "touch_threshold"
 CONF_TOUCH_HYSTERESIS = "touch_hysteresis"
 CONF_PROX_EVENT_TIMEOUT = "prox_event_timeout"
 CONF_TOUCH_EVENT_TIMEOUT = "touch_event_timeout"
+
+CONF_CH_0 = "ch_0"
+CONF_CH_1 = "ch_1"
+CONF_CH_2 = "ch_2"
+CONF_CH_3 = "ch_3"
+CONF_CH_4 = "ch_4"
+CONF_CH_5 = "ch_5"
+CONF_CH_6 = "ch_6"
+CONF_CH_7 = "ch_7"
+CONF_CH_8 = "ch_8"
+CONF_CH_9 = "ch_9"
+
+CHANNELS = [
+    CONF_CH_0,
+    CONF_CH_1,
+    CONF_CH_2,
+    CONF_CH_3,
+    CONF_CH_4,
+    CONF_CH_5,
+    CONF_CH_6,
+    CONF_CH_7,
+    CONF_CH_8,
+    CONF_CH_9,
+]
+
+CONF_SETUP_0 = "setup_0"
+CONF_SETUP_1 = "setup_1"
+CONF_ATI_SETTINGS_0 = "ati_settings_0"
+CONF_ATI_SETTINGS_1 = "ati_settings_1"
+CONF_MULTIPLIERS_0 = "multipliers_0"
+CONF_MULTIPLIERS_1 = "multipliers_1"
+CONF_ATI_COMPENSATION_0 = "ati_compensation_0"
+CONF_ATI_COMPENSATION_1 = "ati_compensation_1"
+CONF_REF_PTR_0 = "ref_ptr_0"
+CONF_REF_PTR_1 = "ref_ptr_1"
+CONF_REFMASK_0 = "refmask_0"
+CONF_REFMASK_1 = "refmask_1"
 
 
 IQS_BUTTON_SCHEMA = cv.Schema(
@@ -47,6 +97,26 @@ IQS_BUTTON_SCHEMA = cv.Schema(
     }
 )
 
+IQS_CHANNEL_SCHEMA = cv.Schema(
+    {
+        cv.Optional(CONF_SETUP_0, default=0x23): cv.int_range(min=0, max=255),
+        cv.Optional(CONF_SETUP_1, default=0x91): cv.int_range(min=0, max=255),
+        cv.Optional(CONF_ATI_SETTINGS_0, default=0x3D): cv.int_range(min=0, max=255),
+        cv.Optional(CONF_ATI_SETTINGS_1, default=0x3E): cv.int_range(min=0, max=255),
+        cv.Optional(CONF_MULTIPLIERS_0, default=0xE7): cv.int_range(min=0, max=255),
+        cv.Optional(CONF_MULTIPLIERS_1, default=0x31): cv.int_range(min=0, max=255),
+        cv.Optional(CONF_ATI_COMPENSATION_0, default=0xDB): cv.int_range(
+            min=0, max=255
+        ),
+        cv.Optional(CONF_ATI_COMPENSATION_1, default=0x61): cv.int_range(
+            min=0, max=255
+        ),
+        cv.Optional(CONF_REF_PTR_0, default=0xC0): cv.int_range(min=0, max=255),
+        cv.Optional(CONF_REF_PTR_1, default=0x04): cv.int_range(min=0, max=255),
+        cv.Optional(CONF_REFMASK_0, default=0x00): cv.int_range(min=0, max=255),
+        cv.Optional(CONF_REFMASK_1, default=0x01): cv.int_range(min=0, max=255),
+    }
+)
 
 CONFIG_SCHEMA = (
     cv.Schema(
@@ -68,6 +138,16 @@ CONFIG_SCHEMA = (
             cv.Optional(CONF_BUTTON_7): IQS_BUTTON_SCHEMA,
             cv.Optional(CONF_BUTTON_8): IQS_BUTTON_SCHEMA,
             cv.Optional(CONF_BUTTON_9): IQS_BUTTON_SCHEMA,
+            cv.Optional(CONF_CH_0): IQS_CHANNEL_SCHEMA,
+            cv.Optional(CONF_CH_1): IQS_CHANNEL_SCHEMA,
+            cv.Optional(CONF_CH_2): IQS_CHANNEL_SCHEMA,
+            cv.Optional(CONF_CH_3): IQS_CHANNEL_SCHEMA,
+            cv.Optional(CONF_CH_4): IQS_CHANNEL_SCHEMA,
+            cv.Optional(CONF_CH_5): IQS_CHANNEL_SCHEMA,
+            cv.Optional(CONF_CH_6): IQS_CHANNEL_SCHEMA,
+            cv.Optional(CONF_CH_7): IQS_CHANNEL_SCHEMA,
+            cv.Optional(CONF_CH_8): IQS_CHANNEL_SCHEMA,
+            cv.Optional(CONF_CH_9): IQS_CHANNEL_SCHEMA,
         }
     )
     .extend(cv.COMPONENT_SCHEMA)
@@ -82,136 +162,43 @@ async def to_code(config):
     cg.add(var.set_enable_test_mode(config[CONF_TEST_MODE]))
     cg.add(var.set_init_delay_ms(config[CONF_INIT_DELAY]))
 
-    if CONF_BUTTON_0 in config:
-        b = config[CONF_BUTTON_0]
-        cg.add(
-            var.set_button_config(
-                0,
-                b[CONF_PROX_THRESHOLD],
-                b[CONF_ENTER_EXIT],
-                b[CONF_TOUCH_THRESHOLD],
-                b[CONF_TOUCH_HYSTERESIS],
-                b[CONF_PROX_EVENT_TIMEOUT],
-                b[CONF_TOUCH_EVENT_TIMEOUT],
+    # iterate through BUTTONS array
+    for idx, button in enumerate(BUTTONS):
+        if button in config:
+            b = config[button]
+            cg.add(
+                var.set_button_config(
+                    idx,
+                    b[CONF_PROX_THRESHOLD],
+                    b[CONF_ENTER_EXIT],
+                    b[CONF_TOUCH_THRESHOLD],
+                    b[CONF_TOUCH_HYSTERESIS],
+                    b[CONF_PROX_EVENT_TIMEOUT],
+                    b[CONF_TOUCH_EVENT_TIMEOUT],
+                )
             )
-        )
-    if CONF_BUTTON_1 in config:
-        b = config[CONF_BUTTON_1]
-        cg.add(
-            var.set_button_config(
-                1,
-                b[CONF_PROX_THRESHOLD],
-                b[CONF_ENTER_EXIT],
-                b[CONF_TOUCH_THRESHOLD],
-                b[CONF_TOUCH_HYSTERESIS],
-                b[CONF_PROX_EVENT_TIMEOUT],
-                b[CONF_TOUCH_EVENT_TIMEOUT],
+
+    # iterate through CHANNELS array
+    for idx, channel in enumerate(CHANNELS):
+        if channel in config:
+            c = config[channel]
+            cg.add(
+                var.set_channel_config(
+                    idx,
+                    c[CONF_SETUP_0],
+                    c[CONF_SETUP_1],
+                    c[CONF_ATI_SETTINGS_0],
+                    c[CONF_ATI_SETTINGS_1],
+                    c[CONF_MULTIPLIERS_0],
+                    c[CONF_MULTIPLIERS_1],
+                    c[CONF_ATI_COMPENSATION_0],
+                    c[CONF_ATI_COMPENSATION_1],
+                    c[CONF_REF_PTR_0],
+                    c[CONF_REF_PTR_1],
+                    c[CONF_REFMASK_0],
+                    c[CONF_REFMASK_1],
+                )
             )
-        )
-    if CONF_BUTTON_2 in config:
-        b = config[CONF_BUTTON_2]
-        cg.add(
-            var.set_button_config(
-                2,
-                b[CONF_PROX_THRESHOLD],
-                b[CONF_ENTER_EXIT],
-                b[CONF_TOUCH_THRESHOLD],
-                b[CONF_TOUCH_HYSTERESIS],
-                b[CONF_PROX_EVENT_TIMEOUT],
-                b[CONF_TOUCH_EVENT_TIMEOUT],
-            )
-        )
-    if CONF_BUTTON_3 in config:
-        b = config[CONF_BUTTON_3]
-        cg.add(
-            var.set_button_config(
-                3,
-                b[CONF_PROX_THRESHOLD],
-                b[CONF_ENTER_EXIT],
-                b[CONF_TOUCH_THRESHOLD],
-                b[CONF_TOUCH_HYSTERESIS],
-                b[CONF_PROX_EVENT_TIMEOUT],
-                b[CONF_TOUCH_EVENT_TIMEOUT],
-            )
-        )
-    if CONF_BUTTON_4 in config:
-        b = config[CONF_BUTTON_5]
-        cg.add(
-            var.set_button_config(
-                4,
-                b[CONF_PROX_THRESHOLD],
-                b[CONF_ENTER_EXIT],
-                b[CONF_TOUCH_THRESHOLD],
-                b[CONF_TOUCH_HYSTERESIS],
-                b[CONF_PROX_EVENT_TIMEOUT],
-                b[CONF_TOUCH_EVENT_TIMEOUT],
-            )
-        )
-    if CONF_BUTTON_5 in config:
-        b = config[CONF_BUTTON_5]
-        cg.add(
-            var.set_button_config(
-                5,
-                b[CONF_PROX_THRESHOLD],
-                b[CONF_ENTER_EXIT],
-                b[CONF_TOUCH_THRESHOLD],
-                b[CONF_TOUCH_HYSTERESIS],
-                b[CONF_PROX_EVENT_TIMEOUT],
-                b[CONF_TOUCH_EVENT_TIMEOUT],
-            )
-        )
-    if CONF_BUTTON_6 in config:
-        b = config[CONF_BUTTON_6]
-        cg.add(
-            var.set_button_config(
-                6,
-                b[CONF_PROX_THRESHOLD],
-                b[CONF_ENTER_EXIT],
-                b[CONF_TOUCH_THRESHOLD],
-                b[CONF_TOUCH_HYSTERESIS],
-                b[CONF_PROX_EVENT_TIMEOUT],
-                b[CONF_TOUCH_EVENT_TIMEOUT],
-            )
-        )
-    if CONF_BUTTON_7 in config:
-        b = config[CONF_BUTTON_7]
-        cg.add(
-            var.set_button_config(
-                7,
-                b[CONF_PROX_THRESHOLD],
-                b[CONF_ENTER_EXIT],
-                b[CONF_TOUCH_THRESHOLD],
-                b[CONF_TOUCH_HYSTERESIS],
-                b[CONF_PROX_EVENT_TIMEOUT],
-                b[CONF_TOUCH_EVENT_TIMEOUT],
-            )
-        )
-    if CONF_BUTTON_8 in config:
-        b = config[CONF_BUTTON_8]
-        cg.add(
-            var.set_button_config(
-                8,
-                b[CONF_PROX_THRESHOLD],
-                b[CONF_ENTER_EXIT],
-                b[CONF_TOUCH_THRESHOLD],
-                b[CONF_TOUCH_HYSTERESIS],
-                b[CONF_PROX_EVENT_TIMEOUT],
-                b[CONF_TOUCH_EVENT_TIMEOUT],
-            )
-        )
-    if CONF_BUTTON_9 in config:
-        b = config[CONF_BUTTON_9]
-        cg.add(
-            var.set_button_config(
-                9,
-                b[CONF_PROX_THRESHOLD],
-                b[CONF_ENTER_EXIT],
-                b[CONF_TOUCH_THRESHOLD],
-                b[CONF_TOUCH_HYSTERESIS],
-                b[CONF_PROX_EVENT_TIMEOUT],
-                b[CONF_TOUCH_EVENT_TIMEOUT],
-            )
-        )
 
     await cg.register_component(var, config)
     await i2c.register_i2c_device(var, config)
