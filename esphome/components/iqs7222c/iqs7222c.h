@@ -43,6 +43,7 @@ class IQS7222CComponent : public Component, public i2c::I2CDevice {
   void set_rdy_pin(InternalGPIOPin *rdy_pin) { this->rdy_pin_ = rdy_pin; }
   void set_mclr_pin(GPIOPin *mclr_pin) { this->mclr_pin_ = mclr_pin; }
   void set_enable_test_mode(bool enable_test_mode) { this->test_mode_ = enable_test_mode; }
+  void set_enable_ati(bool enable_ati) { this->ati_enabled_ = enable_ati; }
   void set_init_delay_ms(uint16_t delay_ms) { this->init_delay_ms_ = delay_ms; }
 
   void set_button_config(uint8_t nr, uint8_t prox_thr, uint8_t enter_exit, uint8_t touch_thr, uint8_t touch_hy,
@@ -59,6 +60,7 @@ class IQS7222CComponent : public Component, public i2c::I2CDevice {
   InternalGPIOPin *rdy_pin_{nullptr};  // Ready pin - device is ready to communicate. Active low.
 
   bool test_mode_{false};
+  bool ati_enabled_{false};
   uint32_t init_delay_ms_{0};
 
   union {
@@ -116,6 +118,9 @@ class IQS7222CComponent : public Component, public i2c::I2CDevice {
     INIT_SOFT_RESET,
     INIT_WRITE_SETTINGS,
     INIT_READ_STATE,
+    ACK_RESET,
+    INIT_ATI,
+    INIT_WAIT_ATI,
     RUNTIME,
   } state_{State::NOT_INITIALIZED}, last_reported_state_{State::NOT_INITIALIZED};
 

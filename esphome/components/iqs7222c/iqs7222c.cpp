@@ -241,6 +241,7 @@ static uint8_t pmu_sys_setting[22] = {(IQS_7222C_PMU_SYS_SETTING),
                                       I2CCOMMS_0};
 
 static uint8_t soft_reset[3] = {IQS_7222C_PMU_SYS_SETTING, 0x02, 0x00};
+
 static const uint16_t stop_byte = 0x00FF;
 
 #define WAIT_FOR_RDY_WINDOW() \
@@ -352,7 +353,49 @@ void IQS7222CComponent::loop() {
       WAIT_FOR_RDY_WINDOW();
       this->read_device_states_();
       this->i2c_stop_();
-      this->set_next_state_delayed_(State::RUNTIME, 100);
+      if (this->device_states_.status.flag.reset) {
+        ESP_LOGD(TAG, "Device reset detected");
+        this->set_next_state_(State::ACK_RESET);
+        break;
+      }
+    } break;
+
+    case State::ACK_RESET: {
+      uint8_t ack_reset[3];
+      ack_reset[0] = pmu_sys_setting[0];
+      ack_reset[1] = pmu_sys_setting[1] | 1;
+      ack_reset[2] = pmu_sys_setting[2];
+      WAIT_FOR_RDY_WINDOW();
+      this->i2c_write_((uint8_t *) &ack_reset, sizeof(ack_reset));
+      this->i2c_stop_();
+      if (this->ati_enabled_) {
+        this->set_next_state_(State::INIT_ATI);
+      } else {
+        this->set_next_state_delayed_(State::RUNTIME, 100);
+      }
+    } break;
+
+    case State::INIT_ATI: {
+      uint8_t init_ati[3]{pmu_sys_setting[0], pmu_sys_setting[1] | 4, pmu_sys_setting[2]};
+      init_ati[0] = pmu_sys_setting[0];
+      init_ati[1] = pmu_sys_setting[1] | 4;
+      init_ati[2] = pmu_sys_setting[2];
+      WAIT_FOR_RDY_WINDOW();
+      this->i2c_write_((uint8_t *) &init_ati, sizeof(init_ati));
+      this->i2c_stop_();
+      this->set_next_state_(State::INIT_WAIT_ATI);
+    } break;
+
+    case State::INIT_WAIT_ATI: {
+      if (this->rdy_read_() != 0)
+        break;
+      this->read_device_states_();
+      this->i2c_stop_();
+      if (this->device_states_.status.flag.ati_active) {
+        ESP_LOGD(TAG, "ATI activated");
+        this->set_next_state_delayed_(State::RUNTIME, 100);
+        break;
+      }
     } break;
 
     case State::RUNTIME: {
@@ -372,14 +415,25 @@ void IQS7222CComponent::loop() {
         if (!this->test_mode_) {
           this->read_device_states_();
           this->i2c_stop_();
+
+          if (this->device_states_.status.flag.reset) {
+            ESP_LOGW(TAG, "Device reset detected in runtime. What to do?");
+            // this->set_next_state_(State::ACK_RESET);
+            // break;
+          }
         }
 
         if (this->device_states_prev_.touch.value != this->device_states_.touch.value) {
           ESP_LOGD(TAG, "Touch event: %d", this->device_states_.touch.value);
           new_touch_data_available = true;
         }
+
         if (this->device_states_prev_.status.value != this->device_states_.status.value) {
-          ESP_LOGD(TAG, "Status event: %d", this->device_states_.status.value);
+          ESP_LOGD(TAG, "Status event: %d (ati_active=%d, ati_err=%d, reset=%d, power=%d, np=%d, halt=%d",
+                   this->device_states_.status.value, this->device_states_.status.flag.ati_active,
+                   this->device_states_.status.flag.ati_error, this->device_states_.status.flag.reset,
+                   this->device_states_.status.flag.power_mode, this->device_states_.status.flag.np_update,
+                   this->device_states_.status.flag.global_hal);
         }
 
         if (new_touch_data_available || report_required) {
@@ -480,6 +534,15 @@ void IQS7222CComponent::report_state_() {
       case State::INIT_READ_STATE:
         ESP_LOGD(TAG, "State::INIT_READ_STATE");
         break;
+      case State::ACK_RESET:
+        ESP_LOGD(TAG, "State::ACK_RESET");
+        break;
+      case State::INIT_ATI:
+        ESP_LOGD(TAG, "State::INIT_ATI");
+        break;
+      case State::INIT_WAIT_ATI:
+        ESP_LOGD(TAG, "State::INIT_WAIT_ATI");
+        break;
       case State::RUNTIME:
         ESP_LOGD(TAG, "State::RUNTIME");
         break;
@@ -537,7 +600,7 @@ void IQS7222CComponent::write_settings_() {
     WAIT_FOR_RDY_WINDOW();
     this->i2c_read_registers_((uint8_t *) &ch_setup_reg, 2, (uint8_t *) &data, 2);
     this->i2c_stop_and_delay_();
-    ESP_LOGV(TAG, "iqs7222c channel%d setup: 0x%04X", ch_setup_reg, data);
+    ESP_LOGD(TAG, "iqs7222c channel%d setup: 0x%04X", ch_setup_reg, data);
   }
 }
 
