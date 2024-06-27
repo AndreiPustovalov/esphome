@@ -72,49 +72,33 @@ CHANNELS = [
     CONF_CH_9,
 ]
 
-CONF_SETUP_0 = "setup_0"
-CONF_SETUP_1 = "setup_1"
-CONF_ATI_SETTINGS_0 = "ati_settings_0"
-CONF_ATI_SETTINGS_1 = "ati_settings_1"
-CONF_MULTIPLIERS_0 = "multipliers_0"
-CONF_MULTIPLIERS_1 = "multipliers_1"
-CONF_ATI_COMPENSATION_0 = "ati_compensation_0"
-CONF_ATI_COMPENSATION_1 = "ati_compensation_1"
-CONF_REF_PTR_0 = "ref_ptr_0"
-CONF_REF_PTR_1 = "ref_ptr_1"
-CONF_REFMASK_0 = "refmask_0"
-CONF_REFMASK_1 = "refmask_1"
+CONF_SETUP = "setup"
+CONF_ATI_SETTINGS = "ati_settings"
+CONF_MULTIPLIERS = "multipliers"
+CONF_ATI_COMPENSATION = "ati_compensation"
+CONF_REF_PTR = "ref_ptr"
+CONF_REFMASK = "refmask"
 
 
 IQS_BUTTON_SCHEMA = cv.Schema(
     {
-        cv.Optional(CONF_PROX_THRESHOLD, default=0x0A): cv.int_range(min=0, max=255),
-        cv.Optional(CONF_ENTER_EXIT, default=0x12): cv.int_range(min=0, max=255),
-        cv.Optional(CONF_TOUCH_THRESHOLD, default=0x32): cv.int_range(min=0, max=255),
-        cv.Optional(CONF_TOUCH_HYSTERESIS, default=0): cv.int_range(min=0, max=255),
-        cv.Optional(CONF_PROX_EVENT_TIMEOUT, default=0): cv.int_range(min=0, max=255),
-        cv.Optional(CONF_TOUCH_EVENT_TIMEOUT, default=0): cv.int_range(min=0, max=255),
+        cv.Optional(CONF_PROX_THRESHOLD, default=0x0A): cv.hex_uint8_t,
+        cv.Optional(CONF_ENTER_EXIT, default=0x12): cv.hex_uint8_t,
+        cv.Optional(CONF_TOUCH_THRESHOLD, default=0x32): cv.hex_uint8_t,
+        cv.Optional(CONF_TOUCH_HYSTERESIS, default=0): cv.hex_uint8_t,
+        cv.Optional(CONF_PROX_EVENT_TIMEOUT, default=0): cv.hex_uint8_t,
+        cv.Optional(CONF_TOUCH_EVENT_TIMEOUT, default=0): cv.hex_uint8_t,
     }
 )
 
 IQS_CHANNEL_SCHEMA = cv.Schema(
     {
-        cv.Optional(CONF_SETUP_0, default=0x23): cv.int_range(min=0, max=255),
-        cv.Optional(CONF_SETUP_1, default=0x91): cv.int_range(min=0, max=255),
-        cv.Optional(CONF_ATI_SETTINGS_0, default=0x3D): cv.int_range(min=0, max=255),
-        cv.Optional(CONF_ATI_SETTINGS_1, default=0x3E): cv.int_range(min=0, max=255),
-        cv.Optional(CONF_MULTIPLIERS_0, default=0xE7): cv.int_range(min=0, max=255),
-        cv.Optional(CONF_MULTIPLIERS_1, default=0x31): cv.int_range(min=0, max=255),
-        cv.Optional(CONF_ATI_COMPENSATION_0, default=0xDB): cv.int_range(
-            min=0, max=255
-        ),
-        cv.Optional(CONF_ATI_COMPENSATION_1, default=0x61): cv.int_range(
-            min=0, max=255
-        ),
-        cv.Optional(CONF_REF_PTR_0, default=0xC0): cv.int_range(min=0, max=255),
-        cv.Optional(CONF_REF_PTR_1, default=0x04): cv.int_range(min=0, max=255),
-        cv.Optional(CONF_REFMASK_0, default=0x00): cv.int_range(min=0, max=255),
-        cv.Optional(CONF_REFMASK_1, default=0x01): cv.int_range(min=0, max=255),
+        cv.Required(CONF_SETUP): cv.hex_uint16_t,
+        cv.Required(CONF_ATI_SETTINGS): cv.hex_uint16_t,
+        cv.Required(CONF_MULTIPLIERS): cv.hex_uint16_t,
+        cv.Required(CONF_ATI_COMPENSATION): cv.hex_uint16_t,
+        cv.Required(CONF_REF_PTR): cv.hex_uint16_t,
+        cv.Required(CONF_REFMASK): cv.hex_uint16_t,
     }
 )
 
@@ -185,18 +169,12 @@ async def to_code(config):
             cg.add(
                 var.set_channel_config(
                     idx,
-                    c[CONF_SETUP_0],
-                    c[CONF_SETUP_1],
-                    c[CONF_ATI_SETTINGS_0],
-                    c[CONF_ATI_SETTINGS_1],
-                    c[CONF_MULTIPLIERS_0],
-                    c[CONF_MULTIPLIERS_1],
-                    c[CONF_ATI_COMPENSATION_0],
-                    c[CONF_ATI_COMPENSATION_1],
-                    c[CONF_REF_PTR_0],
-                    c[CONF_REF_PTR_1],
-                    c[CONF_REFMASK_0],
-                    c[CONF_REFMASK_1],
+                    c[CONF_SETUP],
+                    c[CONF_ATI_SETTINGS],
+                    c[CONF_MULTIPLIERS],
+                    c[CONF_ATI_COMPENSATION],
+                    c[CONF_REF_PTR],
+                    c[CONF_REFMASK],
                 )
             )
 

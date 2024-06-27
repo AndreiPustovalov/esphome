@@ -415,25 +415,15 @@ void IQS7222CComponent::set_button_config(uint8_t nr, uint8_t prox_thr, uint8_t 
   }
 };
 
-/*
-  (CH0_SETUP_1 << 8 | CH0_SETUP_0),
-  (CH0_ATI_SETTINGS_1 << 8 | CH0_ATI_SETTINGS_0),
-  (CH0_MULTIPLIERS_1 << 8 | CH0_MULTIPLIERS_0),
-  (CH0_ATI_COMPENSATION_1 << 8 | CH0_ATI_COMPENSATION_0),
-  (CH0_REF_PTR_1 << 8 | CH0_REF_PTR_0),
-  (CH0_REFMASK_1 << 8 | CH0_REFMASK_0),
-*/
-void IQS7222CComponent::set_channel_config(uint8_t nr, uint8_t setup_0, uint8_t setup_1, uint8_t ati_settings_0,
-                                           uint8_t ati_settings_1, uint8_t multipliers_0, uint8_t multipliers_1,
-                                           uint8_t ati_compensation_0, uint8_t ati_compensation_1, uint8_t ref_ptr_0,
-                                           uint8_t ref_ptr_1, uint8_t refmask_0, uint8_t refmask_1) {
+void IQS7222CComponent::set_channel_config(uint8_t nr, uint16_t setup, uint16_t ati_settings, uint16_t multipliers,
+                                           uint16_t ati_compensation, uint16_t ref_ptr, uint16_t refmask) {
   if (nr < IQS7222C_MAX_CHANNELS) {
-    ch_setup[nr][1] = (setup_1 << 8 | setup_0);
-    ch_setup[nr][2] = (ati_settings_1 << 8 | ati_settings_0);
-    ch_setup[nr][3] = (multipliers_1 << 8 | multipliers_0);
-    ch_setup[nr][4] = (ati_compensation_1 << 8 | ati_compensation_0);
-    ch_setup[nr][5] = (ref_ptr_1 << 8 | ref_ptr_0);
-    ch_setup[nr][6] = (refmask_1 << 8 | refmask_0);
+    ch_setup[nr][1] = setup;
+    ch_setup[nr][2] = ati_settings;
+    ch_setup[nr][3] = multipliers;
+    ch_setup[nr][4] = ati_compensation;
+    ch_setup[nr][5] = ref_ptr;
+    ch_setup[nr][6] = refmask;
   }
 }
 
