@@ -376,7 +376,7 @@ void IQS7222CComponent::loop() {
     } break;
 
     case State::INIT_ATI: {
-      uint8_t init_ati[3]{pmu_sys_setting[0], pmu_sys_setting[1] | 4, pmu_sys_setting[2]};
+      uint8_t init_ati[3];
       init_ati[0] = pmu_sys_setting[0];
       init_ati[1] = pmu_sys_setting[1] | 4;
       init_ati[2] = pmu_sys_setting[2];
@@ -564,43 +564,67 @@ void IQS7222CComponent::write_settings_() {
   uint8_t i{0};
 
   WAIT_FOR_RDY_WINDOW();
-  this->i2c_write_cont_((uint8_t *) &cycle_setup_0, sizeof(cycle_setup_0));
-  this->i2c_write_cont_((uint8_t *) &cycle_setup_1, sizeof(cycle_setup_1));
-  this->i2c_write_cont_((uint8_t *) &cycle_setup_2, sizeof(cycle_setup_2));
-  this->i2c_write_cont_((uint8_t *) &cycle_setup_3, sizeof(cycle_setup_3));
-  this->i2c_write_cont_((uint8_t *) &cycle_setup_4, sizeof(cycle_setup_4));
-  this->i2c_write_cont_((uint8_t *) &global_cycle_setup, sizeof(global_cycle_setup));
+
+  this->write_register16(0x8000, (uint8_t *) &cycle_setup_0[1], 6, false);
+  this->write_register16(0x8100, (uint8_t *) &cycle_setup_1[1], 6, false);
+  this->write_register16(0x8200, (uint8_t *) &cycle_setup_2[1], 6, false);
+  this->write_register16(0x8300, (uint8_t *) &cycle_setup_3[1], 6, false);
+  this->write_register16(0x8400, (uint8_t *) &cycle_setup_4[1], 6, false);
+  this->write_register16(0x8500, (uint8_t *) &global_cycle_setup[1], 6, false);
+
+  // this->i2c_write_cont_((uint8_t *) &cycle_setup_0, sizeof(cycle_setup_0));
+  // this->i2c_write_cont_((uint8_t *) &cycle_setup_1, sizeof(cycle_setup_1));
+  // this->i2c_write_cont_((uint8_t *) &cycle_setup_2, sizeof(cycle_setup_2));
+  // this->i2c_write_cont_((uint8_t *) &cycle_setup_3, sizeof(cycle_setup_3));
+  // this->i2c_write_cont_((uint8_t *) &cycle_setup_4, sizeof(cycle_setup_4));
+  // this->i2c_write_cont_((uint8_t *) &global_cycle_setup, sizeof(global_cycle_setup));
 
   for (i = 0; i < IQS7222C_MAX_BUTTONS; i++) {
-    this->i2c_write_cont_((uint8_t *) &button_setup[i], sizeof(button_setup[i]));
+    this->write_register16(0x9000 + i * 0x0100, (uint8_t *) &button_setup[i][1], 6, false);
+    // this->i2c_write_cont_((uint8_t *) &button_setup[i], sizeof(button_setup[i]));
   }
 
   for (i = 0; i < IQS7222C_MAX_CHANNELS; i++) {
-    this->i2c_write_cont_((uint8_t *) &ch_setup[i], sizeof(ch_setup[i]));
+    ESP_LOGD(TAG, "write_settings_() channel %d [1]=0x%04X", i, ch_setup[i][1]);
+    this->write_register16(0xA000 + i * 0x0100, (uint8_t *) &ch_setup[i][1], 6, false);
+    // this->i2c_write_cont_((uint8_t *) &ch_setup[i], sizeof(ch_setup[i]));
   }
 
-  this->i2c_write_cont_((uint8_t *) &filter_betas, sizeof(filter_betas));
-  this->i2c_write_cont_((uint8_t *) &slider_wheel_setup_0, sizeof(slider_wheel_setup_0));
-  this->i2c_write_cont_((uint8_t *) &slider_wheel_setup_1, sizeof(slider_wheel_setup_1));
+  this->write_register16(0xAA00, (uint8_t *) &filter_betas[1], 4, false);
+  // this->i2c_write_cont_((uint8_t *) &filter_betas, sizeof(filter_betas));
+  this->write_register16(0xB000, (uint8_t *) &slider_wheel_setup_0[1], 20, false);
+  //  this->i2c_write_cont_((uint8_t *) &slider_wheel_setup_0, sizeof(slider_wheel_setup_0));
+  this->write_register16(0xB100, (uint8_t *) &slider_wheel_setup_1[1], 20, false);
+  //  this->i2c_write_cont_((uint8_t *) &slider_wheel_setup_1, sizeof(slider_wheel_setup_1));
 
-  this->i2c_write_cont_((uint8_t *) &gpio_setting_0, sizeof(gpio_setting_0));
-  this->i2c_write_cont_((uint8_t *) &gpio_setting_1, sizeof(gpio_setting_1));
-  this->i2c_write_cont_((uint8_t *) &gpio_setting_2, sizeof(gpio_setting_2));
+  this->write_register16(0xC000, (uint8_t *) &gpio_setting_0[1], 6, false);
+  //  this->i2c_write_cont_((uint8_t *) &gpio_setting_0, sizeof(gpio_setting_0));
+  this->write_register16(0xC100, (uint8_t *) &gpio_setting_1[1], 6, false);
+  //  this->i2c_write_cont_((uint8_t *) &gpio_setting_1, sizeof(gpio_setting_1));
+  this->write_register16(0xC200, (uint8_t *) &gpio_setting_2[1], 6, false);
+  //  this->i2c_write_cont_((uint8_t *) &gpio_setting_2, sizeof(gpio_setting_2));
 
-  this->i2c_write_((uint8_t *) &pmu_sys_setting, sizeof(pmu_sys_setting));
+  this->write_register(0xD0, (uint8_t *) &pmu_sys_setting[1], sizeof(pmu_sys_setting) - 1, false);
+  // this->i2c_write_((uint8_t *) &pmu_sys_setting, sizeof(pmu_sys_setting));
   this->i2c_stop_and_delay_();
 
   uint16_t ch_setup_reg = 0x00A0;
+  uint16_t ch_setup_reg2 = 0xA000;
   uint16_t data = 0;
+  uint16_t data2 = 0;
 
   for (uint16_t ch_num = 0; ch_num < 10; ch_num++) {
     ch_setup_reg = 0x00A0 + ch_num;
     data = 0;
 
+    ch_setup_reg2 = 0xA000 + ch_num * 0x0100;
+    data2 = 0;
+
     WAIT_FOR_RDY_WINDOW();
     this->i2c_read_registers_((uint8_t *) &ch_setup_reg, 2, (uint8_t *) &data, 2);
+    this->read_register16(ch_setup_reg2, (uint8_t *) &data2, 2, false);
     this->i2c_stop_and_delay_();
-    ESP_LOGD(TAG, "iqs7222c channel%d setup: 0x%04X", ch_setup_reg, data);
+    ESP_LOGD(TAG, "iqs7222c channel %d setup1: 0x%04X, setup2: 0x%04X", ch_num, data, data2);
   }
 }
 
@@ -683,7 +707,12 @@ inline void IQS7222CComponent::mclr_set_() { this->mclr_pin_->digital_write(fals
 
 inline void IQS7222CComponent::mclr_clear_() { this->mclr_pin_->digital_write(true); }
 
-inline void IQS7222CComponent::i2c_stop_() { this->bus_->write(address_, (uint8_t *) &stop_byte, 2, true); }
+inline void IQS7222CComponent::i2c_stop_() {
+  // uint16_t stop_byte = 0x00FF;
+  // system_i2c_master_write_slave(IQS_7222C_I2C_NUM, IQS_SLAVE_ADDRESS, (uint8_t*) &stop_byte, 2, true);
+
+  this->bus_->write(address_, (uint8_t *) &stop_byte, 2, true);
+}
 
 inline void IQS7222CComponent::i2c_stop_and_delay_() {
   this->i2c_stop_();
@@ -691,18 +720,38 @@ inline void IQS7222CComponent::i2c_stop_and_delay_() {
 }
 
 inline void IQS7222CComponent::i2c_write_(uint8_t *data, uint16_t data_len) {
+  //    system_i2c_master_write_slave(IQS_7222C_I2C_NUM, IQS_SLAVE_ADDRESS, data, data_len, true);
   this->bus_->write(address_, data, data_len, true);
 }
 
 inline void IQS7222CComponent::i2c_write_cont_(uint8_t *data, uint16_t data_len) {
+  //    system_i2c_master_write_slave(IQS_7222C_I2C_NUM, IQS_SLAVE_ADDRESS, data, data_len, false);
+
   this->bus_->write(address_, data, data_len, false);
 }
 
 inline void IQS7222CComponent::i2c_read_(uint8_t *data, uint16_t data_len) {
+  //     system_i2c_master_read_slave(IQS_7222C_I2C_NUM, IQS_SLAVE_ADDRESS, data, data_len);
   this->bus_->read(address_, data, data_len);
 }
 
 void IQS7222CComponent::i2c_read_registers_(uint8_t *addr, uint16_t addr_size, uint8_t *data, uint16_t data_len) {
+  // esp_err_t err;
+
+  // err = system_i2c_master_write_to_read_slave(IQS_7222C_I2C_NUM, IQS_SLAVE_ADDRESS, addr, addr_size, data, data_len);
+
+  // /* If the sensor is not ready to read data, it returns 0xEEEE */
+  // if (err != ESP_OK)
+  // {
+  //     ESP_LOGI(TAG, "err %d %s", err, esp_err_to_name(err));
+  //     memset(data,0,data_len);
+  //     iqs_7222c_i2c_stop();
+  //     vTaskDelay(20/portTICK_PERIOD_MS);
+  //     /* Try to ready again */
+  //     err = system_i2c_master_write_to_read_slave(IQS_7222C_I2C_NUM, IQS_SLAVE_ADDRESS, addr, addr_size, data,
+  //     data_len);
+  // }
+
   i2c::ErrorCode err;
   if (addr_size == 2) {
     err = this->read_register16(*((uint16_t *) addr), data, data_len, false);
