@@ -50,6 +50,12 @@ class IQS7222CComponent : public Component, public i2c::I2CDevice {
                          uint8_t prox_ev_tm, uint8_t touch_ev_tm);
   void set_channel_config(uint8_t nr, uint16_t setup, uint16_t ati_settings, uint16_t multipliers,
                           uint16_t ati_compensation, uint16_t ref_ptr, uint16_t refmask);
+  void set_cycle_config(uint8_t nr, uint8_t freq_frac, uint8_t freq_period, uint8_t settings, uint8_t ctx_select,
+                        uint8_t iref_0, uint8_t iref_1);
+
+  void set_global_cycle_config(uint8_t setup_0, uint8_t setup_1, uint8_t coarse_divider_preload,
+                               uint8_t fine_divider_preload, uint8_t compensation_preload_0,
+                               uint8_t compensation_preload_1);
 
   void register_button(IQS7222CButton *btn);
 

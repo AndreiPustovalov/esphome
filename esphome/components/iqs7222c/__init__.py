@@ -80,6 +80,31 @@ CONF_ATI_COMPENSATION = "ati_compensation"
 CONF_REF_PTR = "ref_ptr"
 CONF_REFMASK = "refmask"
 
+CONF_CYCLE_0 = "cycle_0"
+CONF_CYCLE_1 = "cycle_1"
+CONF_CYCLE_2 = "cycle_2"
+CONF_CYCLE_3 = "cycle_3"
+CONF_CYCLE_4 = "cycle_4"
+
+CYCLES = [CONF_CYCLE_0, CONF_CYCLE_1, CONF_CYCLE_2, CONF_CYCLE_3, CONF_CYCLE_4]
+
+CONF_CONV_FREQ_FRAC = "conv_freq_frac"
+CONF_CONV_FREQ_PERIOD = "conv_freq_period"
+CONF_SETTINGS = "settings"
+CONF_CTX_SELECT = "ctx_select"
+CONF_IREF_0 = "iref_0"
+CONF_IREF_1 = "iref_1"
+
+
+CONF_GLOBAL_CYCLE = "global_cycle"
+
+CONF_SETUP_0 = "setup_0"
+CONF_SETUP_1 = "setup_1"
+CONF_COARSE_DIVIDER_PRELOAD = "coarse_divider_preload"
+CONF_FINE_DIVIDER_PRELOAD = "fine_divider_preload"
+CONF_COMPENSATION_PRELOAD_0 = "compensation_preload_0"
+CONF_COMPENSATION_PRELOAD_1 = "compensation_preload_1"
+
 
 IQS_BUTTON_SCHEMA = cv.Schema(
     {
@@ -100,6 +125,28 @@ IQS_CHANNEL_SCHEMA = cv.Schema(
         cv.Required(CONF_ATI_COMPENSATION): cv.hex_uint16_t,
         cv.Required(CONF_REF_PTR): cv.hex_uint16_t,
         cv.Required(CONF_REFMASK): cv.hex_uint16_t,
+    }
+)
+
+IQS_CYCLE_SCHEMA = cv.Schema(
+    {
+        cv.Required(CONF_CONV_FREQ_FRAC): cv.hex_uint8_t,
+        cv.Required(CONF_CONV_FREQ_PERIOD): cv.hex_uint8_t,
+        cv.Required(CONF_SETTINGS): cv.hex_uint8_t,
+        cv.Required(CONF_CTX_SELECT): cv.hex_uint8_t,
+        cv.Required(CONF_IREF_0): cv.hex_uint8_t,
+        cv.Required(CONF_IREF_1): cv.hex_uint8_t,
+    }
+)
+
+IQS_GLOBAL_CYCLE_SCHEMA = cv.Schema(
+    {
+        cv.Required(CONF_SETUP_0): cv.hex_uint8_t,
+        cv.Required(CONF_SETUP_1): cv.hex_uint8_t,
+        cv.Required(CONF_COARSE_DIVIDER_PRELOAD): cv.hex_uint8_t,
+        cv.Required(CONF_FINE_DIVIDER_PRELOAD): cv.hex_uint8_t,
+        cv.Required(CONF_COMPENSATION_PRELOAD_0): cv.hex_uint8_t,
+        cv.Required(CONF_COMPENSATION_PRELOAD_1): cv.hex_uint8_t,
     }
 )
 
@@ -134,6 +181,12 @@ CONFIG_SCHEMA = (
             cv.Optional(CONF_CH_7): IQS_CHANNEL_SCHEMA,
             cv.Optional(CONF_CH_8): IQS_CHANNEL_SCHEMA,
             cv.Optional(CONF_CH_9): IQS_CHANNEL_SCHEMA,
+            cv.Optional(CONF_CYCLE_0): IQS_CYCLE_SCHEMA,
+            cv.Optional(CONF_CYCLE_1): IQS_CYCLE_SCHEMA,
+            cv.Optional(CONF_CYCLE_2): IQS_CYCLE_SCHEMA,
+            cv.Optional(CONF_CYCLE_3): IQS_CYCLE_SCHEMA,
+            cv.Optional(CONF_CYCLE_4): IQS_CYCLE_SCHEMA,
+            cv.Optional(CONF_GLOBAL_CYCLE): IQS_GLOBAL_CYCLE_SCHEMA,
         }
     )
     .extend(cv.COMPONENT_SCHEMA)
@@ -180,6 +233,34 @@ async def to_code(config):
                     c[CONF_REFMASK],
                 )
             )
+
+    # iterate through CYCLES array
+    for idx, cy in enumerate(CYCLES):
+        if cy in config:
+            c = config[cy]
+            cg.add(
+                var.set_cycle_config(
+                    idx,
+                    c[CONF_CONV_FREQ_FRAC],
+                    c[CONF_CONV_FREQ_PERIOD],
+                    c[CONF_SETTINGS],
+                    c[CONF_CTX_SELECT],
+                    c[CONF_IREF_0],
+                    c[CONF_IREF_1],
+                )
+            )
+
+    if global_cycle := config.get(CONF_GLOBAL_CYCLE):
+        cg.add(
+            var.set_global_cycle_config(
+                global_cycle[CONF_SETUP_0],
+                global_cycle[CONF_SETUP_1],
+                global_cycle[CONF_COARSE_DIVIDER_PRELOAD],
+                global_cycle[CONF_FINE_DIVIDER_PRELOAD],
+                global_cycle[CONF_COMPENSATION_PRELOAD_0],
+                global_cycle[CONF_COMPENSATION_PRELOAD_1],
+            )
+        )
 
     await cg.register_component(var, config)
     await i2c.register_i2c_device(var, config)

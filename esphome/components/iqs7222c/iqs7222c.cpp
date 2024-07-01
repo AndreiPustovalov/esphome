@@ -8,29 +8,21 @@ namespace iqs7222c {
 
 static const char *const TAG = "iqs7222c";
 
-static const uint16_t cycle_setup_0[4] = {
-    IQS_7222C_CYCLE_SETUP_0, (CYCLE_0_CONV_FREQ_PERIOD << 8 | CYCLE_0_CONV_FREQ_FRAC),
-    (CYCLE_0_CTX_SELECT << 8 | CYCLE_0_SETTINGS), (CYCLE_0_IREF_1 | CYCLE_0_IREF_0)};
+static uint16_t cycle_setup[5][4] = {
+    {IQS_7222C_CYCLE_SETUP_0, (CYCLE_0_CONV_FREQ_PERIOD << 8 | CYCLE_0_CONV_FREQ_FRAC),
+     (CYCLE_0_CTX_SELECT << 8 | CYCLE_0_SETTINGS), (CYCLE_0_IREF_1 << 8 | CYCLE_0_IREF_0)},
+    {IQS_7222C_CYCLE_SETUP_1, (CYCLE_1_CONV_FREQ_PERIOD << 8 | CYCLE_1_CONV_FREQ_FRAC),
+     (CYCLE_1_CTX_SELECT << 8 | CYCLE_1_SETTINGS), (CYCLE_1_IREF_1 << 8 | CYCLE_1_IREF_0)},
+    {IQS_7222C_CYCLE_SETUP_2, (CYCLE_2_CONV_FREQ_PERIOD << 8 | CYCLE_2_CONV_FREQ_FRAC),
+     (CYCLE_2_CTX_SELECT << 8 | CYCLE_2_SETTINGS), (CYCLE_2_IREF_1 << 8 | CYCLE_2_IREF_0)},
+    {IQS_7222C_CYCLE_SETUP_3, (CYCLE_3_CONV_FREQ_PERIOD << 8 | CYCLE_3_CONV_FREQ_FRAC),
+     (CYCLE_3_CTX_SELECT << 8 | CYCLE_3_SETTINGS), (CYCLE_3_IREF_1 << 8 | CYCLE_3_IREF_0)},
+    {IQS_7222C_CYCLE_SETUP_4, (CYCLE_4_CONV_FREQ_PERIOD << 8 | CYCLE_4_CONV_FREQ_FRAC),
+     (CYCLE_4_CTX_SELECT << 8 | CYCLE_4_SETTINGS), (CYCLE_4_IREF_1 << 8 | CYCLE_4_IREF_0)}};
 
-static const uint16_t cycle_setup_1[4] = {
-    IQS_7222C_CYCLE_SETUP_1, (CYCLE_1_CONV_FREQ_PERIOD << 8 | CYCLE_1_CONV_FREQ_FRAC),
-    (CYCLE_1_CTX_SELECT << 8 | CYCLE_1_SETTINGS), (CYCLE_1_IREF_1 | CYCLE_1_IREF_0)};
-
-static const uint16_t cycle_setup_2[4] = {
-    IQS_7222C_CYCLE_SETUP_2, (CYCLE_2_CONV_FREQ_PERIOD << 8 | CYCLE_2_CONV_FREQ_FRAC),
-    (CYCLE_2_CTX_SELECT << 8 | CYCLE_2_SETTINGS), (CYCLE_2_IREF_1 | CYCLE_2_IREF_0)};
-
-static const uint16_t cycle_setup_3[4] = {
-    IQS_7222C_CYCLE_SETUP_3, (CYCLE_3_CONV_FREQ_PERIOD << 8 | CYCLE_3_CONV_FREQ_FRAC),
-    (CYCLE_3_CTX_SELECT << 8 | CYCLE_3_SETTINGS), (CYCLE_3_IREF_1 | CYCLE_3_IREF_0)};
-
-static const uint16_t cycle_setup_4[4] = {
-    IQS_7222C_CYCLE_SETUP_4, (CYCLE_4_CONV_FREQ_PERIOD << 8 | CYCLE_4_CONV_FREQ_FRAC),
-    (CYCLE_4_CTX_SELECT << 8 | CYCLE_4_SETTINGS), (CYCLE_4_IREF_1 | CYCLE_4_IREF_0)};
-
-static const uint16_t global_cycle_setup[4] = {
+static uint16_t global_cycle_setup[4] = {
     IQS_7222C_GLOBAL_CYCLE_SETUP, (GLOBAL_CYCLE_SETUP_1 << 8 | GLOBAL_CYCLE_SETUP_0),
-    (FINE_DIVIDER_PRELOAD | COARSE_DIVIDER_PRELOAD), (COMPENSATION_PRELOAD_1 | COMPENSATION_PRELOAD_0)};
+    (FINE_DIVIDER_PRELOAD << 8 | COARSE_DIVIDER_PRELOAD), (COMPENSATION_PRELOAD_1 << 8 | COMPENSATION_PRELOAD_0)};
 
 static uint16_t button_setup[IQS7222C_MAX_BUTTONS][4] = {
     {(IQS_7222C_BUTTON_SETUP_0), (BUTTON_0_ENTER_EXIT << 8 | BUTTON_0_PROX_THRESHOLD),
@@ -472,9 +464,9 @@ void IQS7222CComponent::loop() {
 void IQS7222CComponent::set_button_config(uint8_t nr, uint8_t prox_thr, uint8_t enter_exit, uint8_t touch_thr,
                                           uint8_t touch_hy, uint8_t prox_ev_tm, uint8_t touch_ev_tm) {
   if (nr < IQS7222C_MAX_BUTTONS) {
-    button_setup[nr][1] = (enter_exit << 8 | prox_thr);
-    button_setup[nr][2] = (touch_hy << 8 | touch_thr);
-    button_setup[nr][3] = (touch_ev_tm << 8 | prox_ev_tm);
+    button_setup[nr][1] = encode_uint16(enter_exit, prox_thr);
+    button_setup[nr][2] = encode_uint16(touch_hy, touch_thr);
+    button_setup[nr][3] = encode_uint16(touch_ev_tm, prox_ev_tm);
   }
 };
 
@@ -488,6 +480,28 @@ void IQS7222CComponent::set_channel_config(uint8_t nr, uint16_t setup, uint16_t 
     ch_setup[nr][5] = ref_ptr;
     ch_setup[nr][6] = refmask;
   }
+}
+
+void IQS7222CComponent::set_cycle_config(uint8_t nr, uint8_t freq_frac, uint8_t freq_period, uint8_t settings,
+                                         uint8_t ctx_select, uint8_t iref_0, uint8_t iref_1) {
+  /*
+   (CYCLE_0_CONV_FREQ_PERIOD << 8 | CYCLE_0_CONV_FREQ_FRAC),
+   (CYCLE_0_CTX_SELECT << 8 | CYCLE_0_SETTINGS),
+   (CYCLE_0_IREF_1 | CYCLE_0_IREF_0)
+                                        */
+  if (nr < 5) {
+    cycle_setup[nr][1] = encode_uint16(freq_period, freq_frac);
+    cycle_setup[nr][2] = encode_uint16(ctx_select, settings);
+    cycle_setup[nr][3] = encode_uint16(iref_1, iref_0);
+  }
+}
+
+void IQS7222CComponent::set_global_cycle_config(uint8_t setup_0, uint8_t setup_1, uint8_t coarse_divider_preload,
+                                                uint8_t fine_divider_preload, uint8_t compensation_preload_0,
+                                                uint8_t compensation_preload_1) {
+  global_cycle_setup[1] = encode_uint16(setup_1, setup_0);
+  global_cycle_setup[2] = encode_uint16(fine_divider_preload, coarse_divider_preload);
+  global_cycle_setup[3] = encode_uint16(compensation_preload_1, compensation_preload_0);
 }
 
 void IQS7222CComponent::register_button(IQS7222CButton *button) {
@@ -574,11 +588,11 @@ void IQS7222CComponent::write_settings_() {
 
   WAIT_FOR_RDY_WINDOW();
 
-  this->write_register16(0x8000, (uint8_t *) &cycle_setup_0[1], 6, false);
-  this->write_register16(0x8100, (uint8_t *) &cycle_setup_1[1], 6, false);
-  this->write_register16(0x8200, (uint8_t *) &cycle_setup_2[1], 6, false);
-  this->write_register16(0x8300, (uint8_t *) &cycle_setup_3[1], 6, false);
-  this->write_register16(0x8400, (uint8_t *) &cycle_setup_4[1], 6, false);
+  this->write_register16(0x8000, (uint8_t *) &cycle_setup[0][1], 6, false);
+  this->write_register16(0x8100, (uint8_t *) &cycle_setup[1][1], 6, false);
+  this->write_register16(0x8200, (uint8_t *) &cycle_setup[2][1], 6, false);
+  this->write_register16(0x8300, (uint8_t *) &cycle_setup[3][1], 6, false);
+  this->write_register16(0x8400, (uint8_t *) &cycle_setup[4][1], 6, false);
   this->write_register16(0x8500, (uint8_t *) &global_cycle_setup[1], 6, false);
 
   // this->i2c_write_cont_((uint8_t *) &cycle_setup_0, sizeof(cycle_setup_0));
