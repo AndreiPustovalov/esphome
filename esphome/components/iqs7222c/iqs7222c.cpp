@@ -250,6 +250,15 @@ static const uint16_t stop_byte = 0x00FF;
       delay(1); \
   }
 
+#define REPORT_RDY_WINDOW() \
+  { \
+    if (this->rdy_read_() == 0) { \
+      ESP_LOGD(TAG, "RDY opened"); \
+    } else { \
+      ESP_LOGD(TAG, "RDY closed...."); \
+    } \
+  }
+
 /***********************************************************************************/
 
 void IQS7222CButton::publish(bool state) {
@@ -578,17 +587,24 @@ void IQS7222CComponent::write_settings_() {
   // this->i2c_write_cont_((uint8_t *) &cycle_setup_3, sizeof(cycle_setup_3));
   // this->i2c_write_cont_((uint8_t *) &cycle_setup_4, sizeof(cycle_setup_4));
   // this->i2c_write_cont_((uint8_t *) &global_cycle_setup, sizeof(global_cycle_setup));
-
+  REPORT_RDY_WINDOW();
   for (i = 0; i < IQS7222C_MAX_BUTTONS; i++) {
     this->write_register16(0x9000 + i * 0x0100, (uint8_t *) &button_setup[i][1], 6, false);
     // this->i2c_write_cont_((uint8_t *) &button_setup[i], sizeof(button_setup[i]));
   }
+  this->i2c_stop_();
 
   for (i = 0; i < IQS7222C_MAX_CHANNELS; i++) {
-    ESP_LOGD(TAG, "write_settings_() channel %d [1]=0x%04X", i, ch_setup[i][1]);
-    this->write_register16(0xA000 + i * 0x0100, (uint8_t *) &ch_setup[i][1], 6, false);
-    // this->i2c_write_cont_((uint8_t *) &ch_setup[i], sizeof(ch_setup[i]));
+    WAIT_FOR_RDY_WINDOW();
+    //   REPORT_RDY_WINDOW();
+    ESP_LOGD(TAG, "write_settings_() channel %d (0x%04X, 0=%02x,1=%02x) [1]=0x%04X, %d bytes", i, ch_setup[i][0],
+             ((uint8_t *) ch_setup[i])[0], ((uint8_t *) ch_setup[i])[1], ch_setup[i][1], sizeof(ch_setup[i]));
+    //   this->write_register16(0xA000 + i * 0x0100, (uint8_t *) &ch_setup[i][1], 6, false);
+    this->i2c_write_cont_((uint8_t *) &ch_setup[i], sizeof(ch_setup[i]));
+    this->i2c_stop_();
   }
+
+  WAIT_FOR_RDY_WINDOW();
 
   this->write_register16(0xAA00, (uint8_t *) &filter_betas[1], 4, false);
   // this->i2c_write_cont_((uint8_t *) &filter_betas, sizeof(filter_betas));
@@ -621,10 +637,11 @@ void IQS7222CComponent::write_settings_() {
     data2 = 0;
 
     WAIT_FOR_RDY_WINDOW();
-    this->i2c_read_registers_((uint8_t *) &ch_setup_reg, 2, (uint8_t *) &data, 2);
-    this->read_register16(ch_setup_reg2, (uint8_t *) &data2, 2, false);
+    // this->i2c_read_registers_((uint8_t *) &ch_setup_reg, 2, (uint8_t *) &data, 2);
+    // this->read_register16(ch_setup_reg2, (uint8_t *) &data2, 2, false);
+    this->read_register((uint8_t) ch_setup_reg, (uint8_t *) &data2, 2, false);
+    ESP_LOGD(TAG, "iqs7222c channel config [%d] 0x%04X", ch_num, data2);
     this->i2c_stop_and_delay_();
-    ESP_LOGD(TAG, "iqs7222c channel %d setup1: 0x%04X, setup2: 0x%04X", ch_num, data, data2);
   }
 }
 
