@@ -61,6 +61,9 @@ class IQS7222CComponent : public Component, public i2c::I2CDevice {
 
   void emulate_touch(uint8_t btn);
 
+  void set_no_init(bool no_init) { this->no_init_ = no_init; };
+  void start_init();
+
  protected:
   GPIOPin *mclr_pin_{nullptr};         // Master Clear pin - for resetting the device. Active low.
   InternalGPIOPin *rdy_pin_{nullptr};  // Ready pin - device is ready to communicate. Active low.
@@ -68,6 +71,7 @@ class IQS7222CComponent : public Component, public i2c::I2CDevice {
   bool test_mode_{false};
   bool ati_enabled_{false};
   uint32_t init_delay_ms_{0};
+  bool no_init_{false};
 
   union {
     uint8_t data[6];

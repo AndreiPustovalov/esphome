@@ -270,13 +270,25 @@ void IQS7222CComponent::setup() {
   this->mclr_pin_->pin_mode(gpio::FLAG_OUTPUT | gpio::FLAG_PULLUP);
   this->mclr_pin_->setup();
 
-  State first_state = this->test_mode_ ? State::RUNTIME : State::INIT_HARD_RESET;
+  if (!this->no_init_) {
+    State first_state = this->test_mode_ ? State::RUNTIME : State::INIT_HARD_RESET;
 
-  if (this->init_delay_ms_ > 0) {
-    this->set_next_state_delayed_(first_state, this->init_delay_ms_);
-  } else {
-    this->set_next_state_(first_state);
+    if (this->init_delay_ms_ > 0) {
+      this->set_next_state_delayed_(first_state, this->init_delay_ms_);
+    } else {
+      this->set_next_state_(first_state);
+    }
   }
+}
+
+void IQS7222CComponent::start_init() {
+  if (this->state_ != State::NOT_INITIALIZED) {
+    ESP_LOGW(TAG, "IQS7222C already initialized");
+    return;
+  }
+  ESP_LOGW(TAG, "IQS7222C manual init");
+  State first_state = this->test_mode_ ? State::RUNTIME : State::INIT_HARD_RESET;
+  this->set_next_state_(first_state);
 }
 
 void IQS7222CComponent::dump_config() {

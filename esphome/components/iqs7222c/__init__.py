@@ -14,6 +14,8 @@ CONF_TEST_MODE = "test_mode"
 CONF_INIT_DELAY = "init_delay"
 CONF_ENABLE_ATI = "enable_ati"
 
+CONF_NO_INIT = "no_init"
+
 iqs7222c_ns = cg.esphome_ns.namespace("iqs7222c")
 CONF_IQS7222C_ID = "iqs7222c_id"
 IQS7222CComponent = iqs7222c_ns.class_("IQS7222CComponent", cg.Component, i2c.I2CDevice)
@@ -156,6 +158,7 @@ CONFIG_SCHEMA = (
             cv.GenerateID(): cv.declare_id(IQS7222CComponent),
             cv.Required(CONF_RDY_PIN): pins.internal_gpio_input_pin_schema,
             cv.Required(CONF_MCLR_PIN): pins.gpio_output_pin_schema,
+            cv.Optional(CONF_NO_INIT, default=False): cv.boolean,
             cv.Optional(CONF_TEST_MODE, default=False): cv.boolean,
             cv.Optional(CONF_ENABLE_ATI, default=True): cv.boolean,
             cv.Optional(
@@ -201,6 +204,7 @@ async def to_code(config):
     cg.add(var.set_enable_test_mode(config[CONF_TEST_MODE]))
     cg.add(var.set_enable_ati(config[CONF_ENABLE_ATI]))
     cg.add(var.set_init_delay_ms(config[CONF_INIT_DELAY]))
+    cg.add(var.set_no_init(config[CONF_NO_INIT]))
 
     # iterate through BUTTONS array
     for idx, button in enumerate(BUTTONS):
