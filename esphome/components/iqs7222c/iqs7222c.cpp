@@ -441,13 +441,13 @@ void IQS7222CComponent::loop() {
           new_touch_data_available = true;
         }
 
-        if (this->device_states_prev_.status.value != this->device_states_.status.value) {
-          ESP_LOGD(TAG, "Status event: %d (ati_active=%d, ati_err=%d, reset=%d, power=%d, np=%d, halt=%d",
-                   this->device_states_.status.value, this->device_states_.status.flag.ati_active,
-                   this->device_states_.status.flag.ati_error, this->device_states_.status.flag.reset,
-                   this->device_states_.status.flag.power_mode, this->device_states_.status.flag.np_update,
-                   this->device_states_.status.flag.global_hal);
-        }
+        // if (this->device_states_prev_.status.value != this->device_states_.status.value) {
+        //   ESP_LOGD(TAG, "Status event: %d (ati_active=%d, ati_err=%d, reset=%d, power=%d, np=%d, halt=%d",
+        //            this->device_states_.status.value, this->device_states_.status.flag.ati_active,
+        //            this->device_states_.status.flag.ati_error, this->device_states_.status.flag.reset,
+        //            this->device_states_.status.flag.power_mode, this->device_states_.status.flag.np_update,
+        //            this->device_states_.status.flag.global_hal);
+        // }
 
         if (new_touch_data_available || report_required) {
           //  ESP_LOGD(TAG, "New touch data available");
@@ -599,13 +599,25 @@ void IQS7222CComponent::write_settings_() {
   uint8_t i{0};
 
   WAIT_FOR_RDY_WINDOW();
+  this->write_register16(0x8000, (uint8_t *) &cycle_setup[0][1], 6);
+  WAIT_FOR_RDY_WINDOW();
+  this->write_register16(0x8100, (uint8_t *) &cycle_setup[1][1], 6);
+  WAIT_FOR_RDY_WINDOW();
+  this->write_register16(0x8200, (uint8_t *) &cycle_setup[2][1], 6);
+  WAIT_FOR_RDY_WINDOW();
+  this->write_register16(0x8300, (uint8_t *) &cycle_setup[3][1], 6);
+  WAIT_FOR_RDY_WINDOW();
+  this->write_register16(0x8400, (uint8_t *) &cycle_setup[4][1], 6);
+  WAIT_FOR_RDY_WINDOW();
+  this->write_register16(0x8500, (uint8_t *) &global_cycle_setup[1], 6);
+  this->i2c_stop_and_delay_();
 
-  this->write_register16(0x8000, (uint8_t *) &cycle_setup[0][1], 6, false);
-  this->write_register16(0x8100, (uint8_t *) &cycle_setup[1][1], 6, false);
-  this->write_register16(0x8200, (uint8_t *) &cycle_setup[2][1], 6, false);
-  this->write_register16(0x8300, (uint8_t *) &cycle_setup[3][1], 6, false);
-  this->write_register16(0x8400, (uint8_t *) &cycle_setup[4][1], 6, false);
-  this->write_register16(0x8500, (uint8_t *) &global_cycle_setup[1], 6, false);
+  // this->write_register16(0x8000, (uint8_t *) &cycle_setup[0][1], 6, false);
+  // this->write_register16(0x8100, (uint8_t *) &cycle_setup[1][1], 6, false);
+  // this->write_register16(0x8200, (uint8_t *) &cycle_setup[2][1], 6, false);
+  // this->write_register16(0x8300, (uint8_t *) &cycle_setup[3][1], 6, false);
+  // this->write_register16(0x8400, (uint8_t *) &cycle_setup[4][1], 6, false);
+  // this->write_register16(0x8500, (uint8_t *) &global_cycle_setup[1], 6, false);
 
   // this->i2c_write_cont_((uint8_t *) &cycle_setup_0, sizeof(cycle_setup_0));
   // this->i2c_write_cont_((uint8_t *) &cycle_setup_1, sizeof(cycle_setup_1));
@@ -613,9 +625,9 @@ void IQS7222CComponent::write_settings_() {
   // this->i2c_write_cont_((uint8_t *) &cycle_setup_3, sizeof(cycle_setup_3));
   // this->i2c_write_cont_((uint8_t *) &cycle_setup_4, sizeof(cycle_setup_4));
   // this->i2c_write_cont_((uint8_t *) &global_cycle_setup, sizeof(global_cycle_setup));
-  REPORT_RDY_WINDOW();
   for (i = 0; i < IQS7222C_MAX_BUTTONS; i++) {
-    this->write_register16(0x9000 + i * 0x0100, (uint8_t *) &button_setup[i][1], 6, false);
+    REPORT_RDY_WINDOW();
+    this->write_register16(0x9000 + i * 0x0100, (uint8_t *) &button_setup[i][1], 6);
     // this->i2c_write_cont_((uint8_t *) &button_setup[i], sizeof(button_setup[i]));
   }
   this->i2c_stop_();
@@ -625,29 +637,38 @@ void IQS7222CComponent::write_settings_() {
     //   REPORT_RDY_WINDOW();
     ESP_LOGD(TAG, "write_settings_() channel %d (0x%04X, 0=%02x,1=%02x) [1]=0x%04X, %d bytes", i, ch_setup[i][0],
              ((uint8_t *) ch_setup[i])[0], ((uint8_t *) ch_setup[i])[1], ch_setup[i][1], sizeof(ch_setup[i]));
-    //   this->write_register16(0xA000 + i * 0x0100, (uint8_t *) &ch_setup[i][1], 6, false);
-    this->i2c_write_cont_((uint8_t *) &ch_setup[i], sizeof(ch_setup[i]));
-    this->i2c_stop_();
+    this->write_register16(0xA000 + i * 0x0100, (uint8_t *) &ch_setup[i][1], 6);
+    // this->i2c_write_cont_((uint8_t *) &ch_setup[i], sizeof(ch_setup[i]));
+    // this->i2c_stop_();
   }
+  this->i2c_stop_();
+  ESP_LOGD(TAG, "before betas");
 
   WAIT_FOR_RDY_WINDOW();
 
-  this->write_register16(0xAA00, (uint8_t *) &filter_betas[1], 4, false);
+  this->write_register16(0xAA00, (uint8_t *) &filter_betas[1], 4);
   // this->i2c_write_cont_((uint8_t *) &filter_betas, sizeof(filter_betas));
-  this->write_register16(0xB000, (uint8_t *) &slider_wheel_setup_0[1], 20, false);
+  WAIT_FOR_RDY_WINDOW();
+  this->write_register16(0xB000, (uint8_t *) &slider_wheel_setup_0[1], 20);
   //  this->i2c_write_cont_((uint8_t *) &slider_wheel_setup_0, sizeof(slider_wheel_setup_0));
-  this->write_register16(0xB100, (uint8_t *) &slider_wheel_setup_1[1], 20, false);
+  WAIT_FOR_RDY_WINDOW();
+  this->write_register16(0xB100, (uint8_t *) &slider_wheel_setup_1[1], 20);
   //  this->i2c_write_cont_((uint8_t *) &slider_wheel_setup_1, sizeof(slider_wheel_setup_1));
 
-  this->write_register16(0xC000, (uint8_t *) &gpio_setting_0[1], 6, false);
+  WAIT_FOR_RDY_WINDOW();
+  this->write_register16(0xC000, (uint8_t *) &gpio_setting_0[1], 6);
   //  this->i2c_write_cont_((uint8_t *) &gpio_setting_0, sizeof(gpio_setting_0));
-  this->write_register16(0xC100, (uint8_t *) &gpio_setting_1[1], 6, false);
+  WAIT_FOR_RDY_WINDOW();
+  this->write_register16(0xC100, (uint8_t *) &gpio_setting_1[1], 6);
   //  this->i2c_write_cont_((uint8_t *) &gpio_setting_1, sizeof(gpio_setting_1));
-  this->write_register16(0xC200, (uint8_t *) &gpio_setting_2[1], 6, false);
+  WAIT_FOR_RDY_WINDOW();
+  this->write_register16(0xC200, (uint8_t *) &gpio_setting_2[1], 6);
   //  this->i2c_write_cont_((uint8_t *) &gpio_setting_2, sizeof(gpio_setting_2));
 
-  this->write_register(0xD0, (uint8_t *) &pmu_sys_setting[1], sizeof(pmu_sys_setting) - 1, false);
+  WAIT_FOR_RDY_WINDOW();
+  this->write_register(0xD0, (uint8_t *) &pmu_sys_setting[1], sizeof(pmu_sys_setting) - 1);
   // this->i2c_write_((uint8_t *) &pmu_sys_setting, sizeof(pmu_sys_setting));
+
   this->i2c_stop_and_delay_();
 
   uint16_t ch_setup_reg = 0x00A0;
@@ -665,9 +686,9 @@ void IQS7222CComponent::write_settings_() {
     WAIT_FOR_RDY_WINDOW();
     // this->i2c_read_registers_((uint8_t *) &ch_setup_reg, 2, (uint8_t *) &data, 2);
     // this->read_register16(ch_setup_reg2, (uint8_t *) &data2, 2, false);
-    this->read_register((uint8_t) ch_setup_reg, (uint8_t *) &data2, 2, false);
+    this->read_register((uint8_t) ch_setup_reg, (uint8_t *) &data2, 2);
     ESP_LOGD(TAG, "iqs7222c channel config [%d] 0x%04X", ch_num, data2);
-    this->i2c_stop_and_delay_();
+    //    this->i2c_stop_and_delay_();
   }
 }
 
@@ -718,10 +739,10 @@ void IQS7222CComponent::read_touch_counts_() {
   reg_addr = IQS_7222C_CHANNEL_0_LTA;
   this->i2c_read_registers_(&reg_addr, 1, (uint8_t *) &lta, IQS7222C_MAX_CHANNELS * 2);
 
-  ESP_LOGD(TAG, "counts ch0-ch9 %5d,%5d,%5d,%5d,%5d,%5d,%5d,%5d,%5d,%5d", counts[0], counts[1], counts[2], counts[3],
-           counts[4], counts[5], counts[6], counts[7], counts[8], counts[9]);
-  ESP_LOGD(TAG, "lta    ch0-ch9 %5d,%5d,%5d,%5d,%5d,%5d,%5d,%5d,%5d,%5d", lta[0], lta[1], lta[2], lta[3], lta[4],
-           lta[5], lta[6], lta[7], lta[8], lta[9]);
+  // ESP_LOGD(TAG, "counts ch0-ch9 %5d,%5d,%5d,%5d,%5d,%5d,%5d,%5d,%5d,%5d", counts[0], counts[1], counts[2], counts[3],
+  //          counts[4], counts[5], counts[6], counts[7], counts[8], counts[9]);
+  // ESP_LOGD(TAG, "lta    ch0-ch9 %5d,%5d,%5d,%5d,%5d,%5d,%5d,%5d,%5d,%5d", lta[0], lta[1], lta[2], lta[3], lta[4],
+  //          lta[5], lta[6], lta[7], lta[8], lta[9]);
 }
 
 void IQS7222CComponent::process_touch_data_() {
