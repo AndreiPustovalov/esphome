@@ -282,11 +282,11 @@ void IQS7222CComponent::setup() {
 }
 
 void IQS7222CComponent::start_init() {
-  if (this->state_ != State::NOT_INITIALIZED) {
-    ESP_LOGW(TAG, "IQS7222C already initialized");
+  if (!(this->state_ == State::NOT_INITIALIZED || this->state_ == State::RUNTIME)) {
+    ESP_LOGW(TAG, "IQS7222C can be re-initialized only in non-init or runtime state.");
     return;
   }
-  ESP_LOGW(TAG, "IQS7222C manual init");
+  ESP_LOGW(TAG, "IQS7222C manual (re)init");
   State first_state = this->test_mode_ ? State::RUNTIME : State::INIT_HARD_RESET;
   this->set_next_state_(first_state);
 }
@@ -596,99 +596,539 @@ void IQS7222CComponent::set_next_state_delayed_(State state, uint32_t delay_ms) 
 
 void IQS7222CComponent::write_settings_() {
   ESP_LOGV(TAG, "write_settings_()");
-  uint8_t i{0};
 
-  WAIT_FOR_RDY_WINDOW();
-  this->write_register16(0x8000, (uint8_t *) &cycle_setup[0][1], 6);
-  WAIT_FOR_RDY_WINDOW();
-  this->write_register16(0x8100, (uint8_t *) &cycle_setup[1][1], 6);
-  WAIT_FOR_RDY_WINDOW();
-  this->write_register16(0x8200, (uint8_t *) &cycle_setup[2][1], 6);
-  WAIT_FOR_RDY_WINDOW();
-  this->write_register16(0x8300, (uint8_t *) &cycle_setup[3][1], 6);
-  WAIT_FOR_RDY_WINDOW();
-  this->write_register16(0x8400, (uint8_t *) &cycle_setup[4][1], 6);
-  WAIT_FOR_RDY_WINDOW();
-  this->write_register16(0x8500, (uint8_t *) &global_cycle_setup[1], 6);
-  this->i2c_stop_and_delay_();
+  if (1) {
+    const bool RESTART = false;
 
-  // this->write_register16(0x8000, (uint8_t *) &cycle_setup[0][1], 6, false);
-  // this->write_register16(0x8100, (uint8_t *) &cycle_setup[1][1], 6, false);
-  // this->write_register16(0x8200, (uint8_t *) &cycle_setup[2][1], 6, false);
-  // this->write_register16(0x8300, (uint8_t *) &cycle_setup[3][1], 6, false);
-  // this->write_register16(0x8400, (uint8_t *) &cycle_setup[4][1], 6, false);
-  // this->write_register16(0x8500, (uint8_t *) &global_cycle_setup[1], 6, false);
+    uint8_t transferBytes[30];
 
-  // this->i2c_write_cont_((uint8_t *) &cycle_setup_0, sizeof(cycle_setup_0));
-  // this->i2c_write_cont_((uint8_t *) &cycle_setup_1, sizeof(cycle_setup_1));
-  // this->i2c_write_cont_((uint8_t *) &cycle_setup_2, sizeof(cycle_setup_2));
-  // this->i2c_write_cont_((uint8_t *) &cycle_setup_3, sizeof(cycle_setup_3));
-  // this->i2c_write_cont_((uint8_t *) &cycle_setup_4, sizeof(cycle_setup_4));
-  // this->i2c_write_cont_((uint8_t *) &global_cycle_setup, sizeof(global_cycle_setup));
-  for (i = 0; i < IQS7222C_MAX_BUTTONS; i++) {
-    REPORT_RDY_WINDOW();
-    this->write_register16(0x9000 + i * 0x0100, (uint8_t *) &button_setup[i][1], 6);
-    // this->i2c_write_cont_((uint8_t *) &button_setup[i], sizeof(button_setup[i]));
-  }
-  this->i2c_stop_();
-
-  for (i = 0; i < IQS7222C_MAX_CHANNELS; i++) {
     WAIT_FOR_RDY_WINDOW();
-    //   REPORT_RDY_WINDOW();
-    ESP_LOGD(TAG, "write_settings_() channel %d (0x%04X, 0=%02x,1=%02x) [1]=0x%04X, %d bytes", i, ch_setup[i][0],
-             ((uint8_t *) ch_setup[i])[0], ((uint8_t *) ch_setup[i])[1], ch_setup[i][1], sizeof(ch_setup[i]));
-    this->write_register16(0xA000 + i * 0x0100, (uint8_t *) &ch_setup[i][1], 6);
-    // this->i2c_write_cont_((uint8_t *) &ch_setup[i], sizeof(ch_setup[i]));
-    // this->i2c_stop_();
+
+    /* Change the Cycle Setup */
+    /* Memory Map Position 0x8000 - 0x8403 */
+    transferBytes[0] = CYCLE_0_CONV_FREQ_FRAC;
+    transferBytes[1] = CYCLE_0_CONV_FREQ_PERIOD;
+    transferBytes[2] = CYCLE_0_SETTINGS;
+    transferBytes[3] = CYCLE_0_CTX_SELECT;
+    transferBytes[4] = CYCLE_0_IREF_0;
+    transferBytes[5] = CYCLE_0_IREF_1;
+    transferBytes[6] = CYCLE_1_CONV_FREQ_FRAC;
+    transferBytes[7] = CYCLE_1_CONV_FREQ_PERIOD;
+    transferBytes[8] = CYCLE_1_SETTINGS;
+    transferBytes[9] = CYCLE_1_CTX_SELECT;
+    transferBytes[10] = CYCLE_1_IREF_0;
+    transferBytes[11] = CYCLE_1_IREF_1;
+    transferBytes[12] = CYCLE_2_CONV_FREQ_FRAC;
+    transferBytes[13] = CYCLE_2_CONV_FREQ_PERIOD;
+    transferBytes[14] = CYCLE_2_SETTINGS;
+    transferBytes[15] = CYCLE_2_CTX_SELECT;
+    transferBytes[16] = CYCLE_2_IREF_0;
+    transferBytes[17] = CYCLE_2_IREF_1;
+    transferBytes[18] = CYCLE_3_CONV_FREQ_FRAC;
+    transferBytes[19] = CYCLE_3_CONV_FREQ_PERIOD;
+    transferBytes[20] = CYCLE_3_SETTINGS;
+    transferBytes[21] = CYCLE_3_CTX_SELECT;
+    transferBytes[22] = CYCLE_3_IREF_0;
+    transferBytes[23] = CYCLE_3_IREF_1;
+    transferBytes[24] = CYCLE_4_CONV_FREQ_FRAC;
+    transferBytes[25] = CYCLE_4_CONV_FREQ_PERIOD;
+    transferBytes[26] = CYCLE_4_SETTINGS;
+    transferBytes[27] = CYCLE_4_CTX_SELECT;
+    transferBytes[28] = CYCLE_4_IREF_0;
+    transferBytes[29] = CYCLE_4_IREF_1;
+    this->write_register16(0x8000, transferBytes, 30);
+    // Serial.println("\t\t1. Write Cycle Settings");
+
+    WAIT_FOR_RDY_WINDOW();
+
+    /* Change the Global Cycle Setup */
+    /* Memory Map Position 0x8500 - 0x8502 */
+    transferBytes[0] = GLOBAL_CYCLE_SETUP_0;
+    transferBytes[1] = GLOBAL_CYCLE_SETUP_1;
+    transferBytes[2] = COARSE_DIVIDER_PRELOAD;
+    transferBytes[3] = FINE_DIVIDER_PRELOAD;
+    transferBytes[4] = COMPENSATION_PRELOAD_0;
+    transferBytes[5] = COMPENSATION_PRELOAD_1;
+    this->write_register16(0x8500, transferBytes, 6);
+    // Serial.println("\t\t2. Write Global Cycle Settings");
+    WAIT_FOR_RDY_WINDOW();
+
+    /* Change the Button Setup 0 - 4 */
+    /* Memory Map Position 0x9000 - 0x9502 */
+    transferBytes[0] = BUTTON_0_PROX_THRESHOLD;
+    transferBytes[1] = BUTTON_0_ENTER_EXIT;
+    transferBytes[2] = BUTTON_0_TOUCH_THRESHOLD;
+    transferBytes[3] = BUTTON_0_TOUCH_HYSTERESIS;
+    transferBytes[4] = BUTTON_0_PROX_EVENT_TIMEOUT;
+    transferBytes[5] = BUTTON_0_TOUCH_EVENT_TIMEOUT;
+    transferBytes[6] = BUTTON_1_PROX_THRESHOLD;
+    transferBytes[7] = BUTTON_1_ENTER_EXIT;
+    transferBytes[8] = BUTTON_1_TOUCH_THRESHOLD;
+    transferBytes[9] = BUTTON_1_TOUCH_HYSTERESIS;
+    transferBytes[10] = BUTTON_1_PROX_EVENT_TIMEOUT;
+    transferBytes[11] = BUTTON_1_TOUCH_EVENT_TIMEOUT;
+    transferBytes[12] = BUTTON_2_PROX_THRESHOLD;
+    transferBytes[13] = BUTTON_2_ENTER_EXIT;
+    transferBytes[14] = BUTTON_2_TOUCH_THRESHOLD;
+    transferBytes[15] = BUTTON_2_TOUCH_HYSTERESIS;
+    transferBytes[16] = BUTTON_2_PROX_EVENT_TIMEOUT;
+    transferBytes[17] = BUTTON_2_TOUCH_EVENT_TIMEOUT;
+    transferBytes[18] = BUTTON_3_PROX_THRESHOLD;
+    transferBytes[19] = BUTTON_3_ENTER_EXIT;
+    transferBytes[20] = BUTTON_3_TOUCH_THRESHOLD;
+    transferBytes[21] = BUTTON_3_TOUCH_HYSTERESIS;
+    transferBytes[22] = BUTTON_3_PROX_EVENT_TIMEOUT;
+    transferBytes[23] = BUTTON_3_TOUCH_EVENT_TIMEOUT;
+    transferBytes[24] = BUTTON_4_PROX_THRESHOLD;
+    transferBytes[25] = BUTTON_4_ENTER_EXIT;
+    transferBytes[26] = BUTTON_4_TOUCH_THRESHOLD;
+    transferBytes[27] = BUTTON_4_TOUCH_HYSTERESIS;
+    transferBytes[28] = BUTTON_4_PROX_EVENT_TIMEOUT;
+    transferBytes[29] = BUTTON_4_TOUCH_EVENT_TIMEOUT;
+    this->write_register16(0x9000, transferBytes, 30);
+    WAIT_FOR_RDY_WINDOW();
+    // Serial.println("\t\t3. Write Button Settings 0 - 4");
+
+    /* Change the Button Setup 5 - 9 */
+    /* Memory Map Position 0x9500 - 0x9902 */
+    transferBytes[0] = BUTTON_5_PROX_THRESHOLD;
+    transferBytes[1] = BUTTON_5_ENTER_EXIT;
+    transferBytes[2] = BUTTON_5_TOUCH_THRESHOLD;
+    transferBytes[3] = BUTTON_5_TOUCH_HYSTERESIS;
+    transferBytes[4] = BUTTON_5_PROX_EVENT_TIMEOUT;
+    transferBytes[5] = BUTTON_5_TOUCH_EVENT_TIMEOUT;
+    transferBytes[6] = BUTTON_6_PROX_THRESHOLD;
+    transferBytes[7] = BUTTON_6_ENTER_EXIT;
+    transferBytes[8] = BUTTON_6_TOUCH_THRESHOLD;
+    transferBytes[9] = BUTTON_6_TOUCH_HYSTERESIS;
+    transferBytes[10] = BUTTON_6_PROX_EVENT_TIMEOUT;
+    transferBytes[11] = BUTTON_6_TOUCH_EVENT_TIMEOUT;
+    transferBytes[12] = BUTTON_7_PROX_THRESHOLD;
+    transferBytes[13] = BUTTON_7_ENTER_EXIT;
+    transferBytes[14] = BUTTON_7_TOUCH_THRESHOLD;
+    transferBytes[15] = BUTTON_7_TOUCH_HYSTERESIS;
+    transferBytes[16] = BUTTON_7_PROX_EVENT_TIMEOUT;
+    transferBytes[17] = BUTTON_7_TOUCH_EVENT_TIMEOUT;
+    transferBytes[18] = BUTTON_8_PROX_THRESHOLD;
+    transferBytes[19] = BUTTON_8_ENTER_EXIT;
+    transferBytes[20] = BUTTON_8_TOUCH_THRESHOLD;
+    transferBytes[21] = BUTTON_8_TOUCH_HYSTERESIS;
+    transferBytes[22] = BUTTON_8_PROX_EVENT_TIMEOUT;
+    transferBytes[23] = BUTTON_8_TOUCH_EVENT_TIMEOUT;
+    transferBytes[24] = BUTTON_9_PROX_THRESHOLD;
+    transferBytes[25] = BUTTON_9_ENTER_EXIT;
+    transferBytes[26] = BUTTON_9_TOUCH_THRESHOLD;
+    transferBytes[27] = BUTTON_9_TOUCH_HYSTERESIS;
+    transferBytes[28] = BUTTON_9_PROX_EVENT_TIMEOUT;
+    transferBytes[29] = BUTTON_9_TOUCH_EVENT_TIMEOUT;
+    this->write_register16(0x9500, transferBytes, 30);
+    WAIT_FOR_RDY_WINDOW();
+    // Serial.println("\t\t4. Write Button Settings 5 - 9");
+
+    /* Change the CH0 Setup */
+    /* Memory Map Position 0xA000 - 0xA005 */
+    transferBytes[0] = CH0_SETUP_0;
+    transferBytes[1] = CH0_SETUP_1;
+    transferBytes[2] = CH0_ATI_SETTINGS_0;
+    transferBytes[3] = CH0_ATI_SETTINGS_1;
+    transferBytes[4] = CH0_MULTIPLIERS_0;
+    transferBytes[5] = CH0_MULTIPLIERS_1;
+    transferBytes[6] = CH0_ATI_COMPENSATION_0;
+    transferBytes[7] = CH0_ATI_COMPENSATION_1;
+    transferBytes[8] = CH0_REF_PTR_0;
+    transferBytes[9] = CH0_REF_PTR_1;
+    transferBytes[10] = CH0_REFMASK_0;
+    transferBytes[11] = CH0_REFMASK_1;
+    this->write_register16(0xA000, transferBytes, 12);
+    WAIT_FOR_RDY_WINDOW();
+    // Serial.println("\t\t5. Write Channel 0 Settings");
+
+    /* Change the CH1 Setup */
+    /* Memory Map Position 0xA100 - 0xA105 */
+    transferBytes[0] = CH1_SETUP_0;
+    transferBytes[1] = CH1_SETUP_1;
+    transferBytes[2] = CH1_ATI_SETTINGS_0;
+    transferBytes[3] = CH1_ATI_SETTINGS_1;
+    transferBytes[4] = CH1_MULTIPLIERS_0;
+    transferBytes[5] = CH1_MULTIPLIERS_1;
+    transferBytes[6] = CH1_ATI_COMPENSATION_0;
+    transferBytes[7] = CH1_ATI_COMPENSATION_1;
+    transferBytes[8] = CH1_REF_PTR_0;
+    transferBytes[9] = CH1_REF_PTR_1;
+    transferBytes[10] = CH1_REFMASK_0;
+    transferBytes[11] = CH1_REFMASK_1;
+    this->write_register16(0xA100, transferBytes, 12);
+    WAIT_FOR_RDY_WINDOW();
+    // Serial.println("\t\t6. Write Channel 1 Settings");
+
+    /* Change the CH2 Setup */
+    /* Memory Map Position 0xA200 - 0xA205 */
+    transferBytes[0] = CH2_SETUP_0;
+    transferBytes[1] = CH2_SETUP_1;
+    transferBytes[2] = CH2_ATI_SETTINGS_0;
+    transferBytes[3] = CH2_ATI_SETTINGS_1;
+    transferBytes[4] = CH2_MULTIPLIERS_0;
+    transferBytes[5] = CH2_MULTIPLIERS_1;
+    transferBytes[6] = CH2_ATI_COMPENSATION_0;
+    transferBytes[7] = CH2_ATI_COMPENSATION_1;
+    transferBytes[8] = CH2_REF_PTR_0;
+    transferBytes[9] = CH2_REF_PTR_1;
+    transferBytes[10] = CH2_REFMASK_0;
+    transferBytes[11] = CH2_REFMASK_1;
+    this->write_register16(0xA200, transferBytes, 12);
+    WAIT_FOR_RDY_WINDOW();
+    // Serial.println("\t\t7. Write Channel 2 Settings");
+
+    /* Change the CH3 Setup */
+    /* Memory Map Position 0xA300 - 0xA305 */
+    transferBytes[0] = CH3_SETUP_0;
+    transferBytes[1] = CH3_SETUP_1;
+    transferBytes[2] = CH3_ATI_SETTINGS_0;
+    transferBytes[3] = CH3_ATI_SETTINGS_1;
+    transferBytes[4] = CH3_MULTIPLIERS_0;
+    transferBytes[5] = CH3_MULTIPLIERS_1;
+    transferBytes[6] = CH3_ATI_COMPENSATION_0;
+    transferBytes[7] = CH3_ATI_COMPENSATION_1;
+    transferBytes[8] = CH3_REF_PTR_0;
+    transferBytes[9] = CH3_REF_PTR_1;
+    transferBytes[10] = CH3_REFMASK_0;
+    transferBytes[11] = CH3_REFMASK_1;
+    this->write_register16(0xA300, transferBytes, 12);
+    WAIT_FOR_RDY_WINDOW();
+    // Serial.println("\t\t8. Write Channel 3 Settings");
+
+    /* Change the CH4 Setup */
+    /* Memory Map Position 0xA400 - 0xA405 */
+    transferBytes[0] = CH4_SETUP_0;
+    transferBytes[1] = CH4_SETUP_1;
+    transferBytes[2] = CH4_ATI_SETTINGS_0;
+    transferBytes[3] = CH4_ATI_SETTINGS_1;
+    transferBytes[4] = CH4_MULTIPLIERS_0;
+    transferBytes[5] = CH4_MULTIPLIERS_1;
+    transferBytes[6] = CH4_ATI_COMPENSATION_0;
+    transferBytes[7] = CH4_ATI_COMPENSATION_1;
+    transferBytes[8] = CH4_REF_PTR_0;
+    transferBytes[9] = CH4_REF_PTR_1;
+    transferBytes[10] = CH4_REFMASK_0;
+    transferBytes[11] = CH4_REFMASK_1;
+    this->write_register16(0xa400, transferBytes, 12);
+    WAIT_FOR_RDY_WINDOW();
+    // Serial.println("\t\t9. Write Channel 4 Settings");
+
+    /* Change the CH5 Setup */
+    /* Memory Map Position 0xA500 - 0xA505 */
+    transferBytes[0] = CH5_SETUP_0;
+    transferBytes[1] = CH5_SETUP_1;
+    transferBytes[2] = CH5_ATI_SETTINGS_0;
+    transferBytes[3] = CH5_ATI_SETTINGS_1;
+    transferBytes[4] = CH5_MULTIPLIERS_0;
+    transferBytes[5] = CH5_MULTIPLIERS_1;
+    transferBytes[6] = CH5_ATI_COMPENSATION_0;
+    transferBytes[7] = CH5_ATI_COMPENSATION_1;
+    transferBytes[8] = CH5_REF_PTR_0;
+    transferBytes[9] = CH5_REF_PTR_1;
+    transferBytes[10] = CH5_REFMASK_0;
+    transferBytes[11] = CH5_REFMASK_1;
+    this->write_register16(0xa500, transferBytes, 12);
+    WAIT_FOR_RDY_WINDOW();
+    // Serial.println("\t\t10. Write Channel 5 Settings");
+
+    /* Change the CH6 Setup */
+    /* Memory Map Position 0xA600 - 0xA605 */
+    transferBytes[0] = CH6_SETUP_0;
+    transferBytes[1] = CH6_SETUP_1;
+    transferBytes[2] = CH6_ATI_SETTINGS_0;
+    transferBytes[3] = CH6_ATI_SETTINGS_1;
+    transferBytes[4] = CH6_MULTIPLIERS_0;
+    transferBytes[5] = CH6_MULTIPLIERS_1;
+    transferBytes[6] = CH6_ATI_COMPENSATION_0;
+    transferBytes[7] = CH6_ATI_COMPENSATION_1;
+    transferBytes[8] = CH6_REF_PTR_0;
+    transferBytes[9] = CH6_REF_PTR_1;
+    transferBytes[10] = CH6_REFMASK_0;
+    transferBytes[11] = CH6_REFMASK_1;
+    this->write_register16(0xA600, transferBytes, 12);
+    WAIT_FOR_RDY_WINDOW();
+    //  Serial.println("\t\t11. Write Channel 6 Settings");
+
+    /* Change the CH7 Setup */
+    /* Memory Map Position 0xA700 - 0xA705 */
+    transferBytes[0] = CH7_SETUP_0;
+    transferBytes[1] = CH7_SETUP_1;
+    transferBytes[2] = CH7_ATI_SETTINGS_0;
+    transferBytes[3] = CH7_ATI_SETTINGS_1;
+    transferBytes[4] = CH7_MULTIPLIERS_0;
+    transferBytes[5] = CH7_MULTIPLIERS_1;
+    transferBytes[6] = CH7_ATI_COMPENSATION_0;
+    transferBytes[7] = CH7_ATI_COMPENSATION_1;
+    transferBytes[8] = CH7_REF_PTR_0;
+    transferBytes[9] = CH7_REF_PTR_1;
+    transferBytes[10] = CH7_REFMASK_0;
+    transferBytes[11] = CH7_REFMASK_1;
+    this->write_register16(0xA700, transferBytes, 12);
+    WAIT_FOR_RDY_WINDOW();
+    //  Serial.println("\t\t12. Write Channel 7 Settings");
+
+    /* Change the CH8 Setup */
+    /* Memory Map Position 0xA800 - 0xA805 */
+    transferBytes[0] = CH8_SETUP_0;
+    transferBytes[1] = CH8_SETUP_1;
+    transferBytes[2] = CH8_ATI_SETTINGS_0;
+    transferBytes[3] = CH8_ATI_SETTINGS_1;
+    transferBytes[4] = CH8_MULTIPLIERS_0;
+    transferBytes[5] = CH8_MULTIPLIERS_1;
+    transferBytes[6] = CH8_ATI_COMPENSATION_0;
+    transferBytes[7] = CH8_ATI_COMPENSATION_1;
+    transferBytes[8] = CH8_REF_PTR_0;
+    transferBytes[9] = CH8_REF_PTR_1;
+    transferBytes[10] = CH8_REFMASK_0;
+    transferBytes[11] = CH8_REFMASK_1;
+    this->write_register16(0xA800, transferBytes, 12);
+    WAIT_FOR_RDY_WINDOW();
+    //  Serial.println("\t\t13. Write Channel 8 Settings");
+
+    /* Change the CH9 Setup */
+    /* Memory Map Position 0xA900 - 0xA905 */
+    transferBytes[0] = CH9_SETUP_0;
+    transferBytes[1] = CH9_SETUP_1;
+    transferBytes[2] = CH9_ATI_SETTINGS_0;
+    transferBytes[3] = CH9_ATI_SETTINGS_1;
+    transferBytes[4] = CH9_MULTIPLIERS_0;
+    transferBytes[5] = CH9_MULTIPLIERS_1;
+    transferBytes[6] = CH9_ATI_COMPENSATION_0;
+    transferBytes[7] = CH9_ATI_COMPENSATION_1;
+    transferBytes[8] = CH9_REF_PTR_0;
+    transferBytes[9] = CH9_REF_PTR_1;
+    transferBytes[10] = CH9_REFMASK_0;
+    transferBytes[11] = CH9_REFMASK_1;
+    this->write_register16(0xA900, transferBytes, 12);
+    WAIT_FOR_RDY_WINDOW();
+    //  Serial.println("\t\t14. Write Channel 9 Settings");
+
+    /* Change the Filter Betas */
+    /* Memory Map Position 0xAA00 - 0xAA01 */
+    transferBytes[0] = COUNTS_BETA_FILTER;
+    transferBytes[1] = LTA_BETA_FILTER;
+    transferBytes[2] = LTA_FAST_BETA_FILTER;
+    transferBytes[3] = RESERVED_FILTER_0;
+    this->write_register16(0xAA00, transferBytes, 4);
+    WAIT_FOR_RDY_WINDOW();
+    //  Serial.println("\t\t15. Write Filter Betas");
+
+    /* Change the Slider/Wheel 0 Setup 0 & Delta Link */
+    /* Memory Map Position 0xB000 - 0xB009 */
+    transferBytes[0] = SLIDER0SETUP_GENERAL;
+    transferBytes[1] = SLIDER0_LOWER_CAL;
+    transferBytes[2] = SLIDER0_UPPER_CAL;
+    transferBytes[3] = SLIDER0_BOTTOM_SPEED;
+    transferBytes[4] = SLIDER0_TOPSPEED_0;
+    transferBytes[5] = SLIDER0_TOPSPEED_1;
+    transferBytes[6] = SLIDER0_RESOLUTION_0;
+    transferBytes[7] = SLIDER0_RESOLUTION_1;
+    transferBytes[8] = SLIDER0_ENABLE_MASK_0_7;
+    transferBytes[9] = SLIDER0_ENABLE_MASK_8_9;
+    transferBytes[10] = SLIDER0_ENABLESTATUSLINK_0;
+    transferBytes[11] = SLIDER0_ENABLESTATUSLINK_1;
+    transferBytes[12] = SLIDER0_DELTA0_0;
+    transferBytes[13] = SLIDER0_DELTA0_1;
+    transferBytes[14] = SLIDER0_DELTA1_0;
+    transferBytes[15] = SLIDER0_DELTA1_1;
+    transferBytes[16] = SLIDER0_DELTA2_0;
+    transferBytes[17] = SLIDER0_DELTA2_1;
+    transferBytes[18] = SLIDER0_DELTA3_0;
+    transferBytes[19] = SLIDER0_DELTA3_1;
+    this->write_register16(0xB000, transferBytes, 20);
+    WAIT_FOR_RDY_WINDOW();
+    //  Serial.println("\t\t16. Slider/Wheel 0 Settings");
+
+    /* Change the Slider/Wheel 1 Setup 0 */
+    /* Memory Map Position 0xB100 - 0xB105 */
+    transferBytes[0] = SLIDER1SETUP_GENERAL;
+    transferBytes[1] = SLIDER1_LOWER_CAL;
+    transferBytes[2] = SLIDER1_UPPER_CAL;
+    transferBytes[3] = SLIDER1_BOTTOM_SPEED;
+    transferBytes[4] = SLIDER1_TOPSPEED_0;
+    transferBytes[5] = SLIDER1_TOPSPEED_1;
+    transferBytes[6] = SLIDER1_RESOLUTION_0;
+    transferBytes[7] = SLIDER1_RESOLUTION_1;
+    transferBytes[8] = SLIDER1_ENABLE_MASK_0_7;
+    transferBytes[9] = SLIDER1_ENABLE_MASK_8_9;
+    transferBytes[10] = SLIDER1_ENABLESTATUSLINK_0;
+    transferBytes[11] = SLIDER1_ENABLESTATUSLINK_1;
+    transferBytes[12] = SLIDER1_DELTA0_0;
+    transferBytes[13] = SLIDER1_DELTA0_1;
+    transferBytes[14] = SLIDER1_DELTA1_0;
+    transferBytes[15] = SLIDER1_DELTA1_1;
+    transferBytes[16] = SLIDER1_DELTA2_0;
+    transferBytes[17] = SLIDER1_DELTA2_1;
+    transferBytes[18] = SLIDER1_DELTA3_0;
+    transferBytes[19] = SLIDER1_DELTA3_1;
+    this->write_register16(0xB100, transferBytes, 20);
+    WAIT_FOR_RDY_WINDOW();
+    //  Serial.println("\t\t17. Slider/Wheel 1 Settings");
+
+    /* Change the GPIO Settings */
+    /* Memory Map Position 0xC000 - 0xC202 */
+    transferBytes[0] = GPIO0_SETUP_0;
+    transferBytes[1] = GPIO0_SETUP_1;
+    transferBytes[2] = GPIO0_ENABLE_MASK_0_7;
+    transferBytes[3] = GPIO0_ENABLE_MASK_8_9;
+    transferBytes[4] = GPIO0_ENABLESTATUSLINK_0;
+    transferBytes[5] = GPIO0_ENABLESTATUSLINK_1;
+    transferBytes[6] = GPIO1_SETUP_0;
+    transferBytes[7] = GPIO1_SETUP_1;
+    transferBytes[8] = GPIO1_ENABLE_MASK_0_7;
+    transferBytes[9] = GPIO1_ENABLE_MASK_8_9;
+    transferBytes[10] = GPIO1_ENABLESTATUSLINK_0;
+    transferBytes[11] = GPIO1_ENABLESTATUSLINK_1;
+    transferBytes[12] = GPIO2_SETUP_0;
+    transferBytes[13] = GPIO2_SETUP_1;
+    transferBytes[14] = GPIO2_ENABLE_MASK_0_7;
+    transferBytes[15] = GPIO2_ENABLE_MASK_8_9;
+    transferBytes[16] = GPIO2_ENABLESTATUSLINK_0;
+    transferBytes[17] = GPIO2_ENABLESTATUSLINK_1;
+    this->write_register16(0xC000, transferBytes, 18);
+    WAIT_FOR_RDY_WINDOW();
+    //  Serial.println("\t\t18. GPIO 0 Settings");
+
+    /* Change the System Settings */
+    /* Memory Map Position 0xD0 - 0xD9 */
+    transferBytes[0] = SYSTEM_CONTROL_0;
+    transferBytes[1] = SYSTEM_CONTROL_1;
+    transferBytes[2] = ATI_ERROR_TIMEOUT_0;
+    transferBytes[3] = ATI_ERROR_TIMEOUT_1;
+    transferBytes[4] = ATI_REPORT_RATE_0;
+    transferBytes[5] = ATI_REPORT_RATE_1;
+    transferBytes[6] = NORMAL_MODE_TIMEOUT_0;
+    transferBytes[7] = NORMAL_MODE_TIMEOUT_1;
+    transferBytes[8] = NORMAL_MODE_REPORT_RATE_0;
+    transferBytes[9] = NORMAL_MODE_REPORT_RATE_1;
+    transferBytes[10] = LP_MODE_TIMEOUT_0;
+    transferBytes[11] = LP_MODE_TIMEOUT_1;
+    transferBytes[12] = LP_MODE_REPORT_RATE_0;
+    transferBytes[13] = LP_MODE_REPORT_RATE_1;
+    transferBytes[14] = ULP_MODE_TIMEOUT_0;
+    transferBytes[15] = ULP_MODE_TIMEOUT_1;
+    transferBytes[16] = ULP_MODE_REPORT_RATE_0;
+    transferBytes[17] = ULP_MODE_REPORT_RATE_1;
+    transferBytes[18] = TOUCH_PROX_EVENT_MASK;
+    transferBytes[19] = POWER_ATI_EVENT_MASK;
+    transferBytes[20] = I2CCOMMS_0;
+    this->write_register(0xd0, transferBytes, 21);
+    WAIT_FOR_RDY_WINDOW();
+    //  Serial.println("\t\t19. System Settings");
+
+    /* Change the GPIO Override */
+    /* Memory Map Position 0xDB - 0xDB */
+    transferBytes[0] = GPIO_OVERRIDE;
+    this->write_register(0xdb, transferBytes, 1);
+    WAIT_FOR_RDY_WINDOW();
+    //  Serial.println("\t\t20. GPIO Override");
+
+    /* Change the Comms timeout setting */
+    /* Memory Map Position 0xDC - 0xDC */
+    transferBytes[0] = COMMS_TIMEOUT_0;
+    transferBytes[1] = COMMS_TIMEOUT_1;
+    this->write_register(0xdc, transferBytes, 2);
+    //  Serial.println("\t\t21. Communication Timeout");
+  } else {
+    uint8_t i{0};
+
+    WAIT_FOR_RDY_WINDOW();
+    this->write_register16(0x8000, (uint8_t *) &cycle_setup[0][1], 6, false);
+    this->write_register16(0x8100, (uint8_t *) &cycle_setup[1][1], 6, false);
+    this->write_register16(0x8200, (uint8_t *) &cycle_setup[2][1], 6, false);
+    this->write_register16(0x8300, (uint8_t *) &cycle_setup[3][1], 6, false);
+    this->write_register16(0x8400, (uint8_t *) &cycle_setup[4][1], 6, false);
+    this->write_register16(0x8500, (uint8_t *) &global_cycle_setup[1], 6, true);
+    this->i2c_stop_and_delay_();
+
+    // this->write_register16(0x8000, (uint8_t *) &cycle_setup[0][1], 6, false);
+    // this->write_register16(0x8100, (uint8_t *) &cycle_setup[1][1], 6, false);
+    // this->write_register16(0x8200, (uint8_t *) &cycle_setup[2][1], 6, false);
+    // this->write_register16(0x8300, (uint8_t *) &cycle_setup[3][1], 6, false);
+    // this->write_register16(0x8400, (uint8_t *) &cycle_setup[4][1], 6, false);
+    // this->write_register16(0x8500, (uint8_t *) &global_cycle_setup[1], 6, false);
+
+    // this->i2c_write_cont_((uint8_t *) &cycle_setup_0, sizeof(cycle_setup_0));
+    // this->i2c_write_cont_((uint8_t *) &cycle_setup_1, sizeof(cycle_setup_1));
+    // this->i2c_write_cont_((uint8_t *) &cycle_setup_2, sizeof(cycle_setup_2));
+    // this->i2c_write_cont_((uint8_t *) &cycle_setup_3, sizeof(cycle_setup_3));
+    // this->i2c_write_cont_((uint8_t *) &cycle_setup_4, sizeof(cycle_setup_4));
+    // // this->i2c_write_cont_((uint8_t *) &global_cycle_setup, sizeof(global_cycle_setup));
+
+    // for (i = 0; i < IQS7222C_MAX_BUTTONS; i++) {
+    //   //      WAIT_FOR_RDY_WINDOW();
+    //   this->write_register16(0x9000 + i * 0x0100, (uint8_t *) &button_setup[i][1], 6, false);
+    //   // this->i2c_write_cont_((uint8_t *) &button_setup[i], sizeof(button_setup[i]));
+    // }
+    WAIT_FOR_RDY_WINDOW();
+    this->write_register16(0x9000, (uint8_t *) &button_setup[0][1], 6, false);
+    this->write_register16(0x9100, (uint8_t *) &button_setup[1][1], 6, false);
+    this->write_register16(0x9200, (uint8_t *) &button_setup[2][1], 6, false);
+    this->write_register16(0x9300, (uint8_t *) &button_setup[3][1], 6, false);
+    this->write_register16(0x9400, (uint8_t *) &button_setup[4][1], 6, false);
+    this->write_register16(0x9500, (uint8_t *) &button_setup[5][1], 6, false);
+    this->write_register16(0x9600, (uint8_t *) &button_setup[6][1], 6, false);
+    this->write_register16(0x9700, (uint8_t *) &button_setup[7][1], 6, false);
+    this->write_register16(0x9800, (uint8_t *) &button_setup[8][1], 6, false);
+    this->write_register16(0x9900, (uint8_t *) &button_setup[9][1], 6, true);
+
+    this->i2c_stop_();
+
+    WAIT_FOR_RDY_WINDOW();
+    this->write_register16(0xA000, (uint8_t *) &ch_setup[0][1], 6, false);
+    this->write_register16(0xA100, (uint8_t *) &ch_setup[1][1], 6, false);
+    this->write_register16(0xA200, (uint8_t *) &ch_setup[2][1], 6, false);
+    this->write_register16(0xA300, (uint8_t *) &ch_setup[3][1], 6, false);
+    this->write_register16(0xA400, (uint8_t *) &ch_setup[4][1], 6, false);
+    this->write_register16(0xA500, (uint8_t *) &ch_setup[5][1], 6, false);
+    this->write_register16(0xA600, (uint8_t *) &ch_setup[6][1], 6, false);
+    this->write_register16(0xA700, (uint8_t *) &ch_setup[7][1], 6, false);
+    this->write_register16(0xA800, (uint8_t *) &ch_setup[8][1], 6, false);
+    this->write_register16(0xA900, (uint8_t *) &ch_setup[9][1], 6, true);
+
+    this->i2c_stop_();
+
+    for (i = 0; i < IQS7222C_MAX_CHANNELS; i++) {
+      ESP_LOGD(TAG, "write_settings_() channel %d (0x%04X, 0=%02x,1=%02x) [1]=0x%04X, %d bytes", i, ch_setup[i][0],
+               ((uint8_t *) ch_setup[i])[0], ((uint8_t *) ch_setup[i])[1], ch_setup[i][1], sizeof(ch_setup[i]));
+    }
+
+    ESP_LOGD(TAG, "before betas");
+    WAIT_FOR_RDY_WINDOW();
+    this->write_register16(0xAA00, (uint8_t *) &filter_betas[1], 4, false);
+    this->write_register16(0xB000, (uint8_t *) &slider_wheel_setup_0[1], 20, false);
+    this->write_register16(0xB100, (uint8_t *) &slider_wheel_setup_1[1], 20, false);
+    this->write_register16(0xC000, (uint8_t *) &gpio_setting_0[1], 6, false);
+    this->write_register16(0xC100, (uint8_t *) &gpio_setting_1[1], 6, false);
+    this->write_register16(0xC200, (uint8_t *) &gpio_setting_2[1], 6, false);
+    this->write_register(0xD0, (uint8_t *) &pmu_sys_setting[1], sizeof(pmu_sys_setting) - 1, true);
+
+    this->i2c_stop_and_delay_();
   }
-  this->i2c_stop_();
-  ESP_LOGD(TAG, "before betas");
-
-  WAIT_FOR_RDY_WINDOW();
-
-  this->write_register16(0xAA00, (uint8_t *) &filter_betas[1], 4);
-  // this->i2c_write_cont_((uint8_t *) &filter_betas, sizeof(filter_betas));
-  WAIT_FOR_RDY_WINDOW();
-  this->write_register16(0xB000, (uint8_t *) &slider_wheel_setup_0[1], 20);
-  //  this->i2c_write_cont_((uint8_t *) &slider_wheel_setup_0, sizeof(slider_wheel_setup_0));
-  WAIT_FOR_RDY_WINDOW();
-  this->write_register16(0xB100, (uint8_t *) &slider_wheel_setup_1[1], 20);
-  //  this->i2c_write_cont_((uint8_t *) &slider_wheel_setup_1, sizeof(slider_wheel_setup_1));
-
-  WAIT_FOR_RDY_WINDOW();
-  this->write_register16(0xC000, (uint8_t *) &gpio_setting_0[1], 6);
-  //  this->i2c_write_cont_((uint8_t *) &gpio_setting_0, sizeof(gpio_setting_0));
-  WAIT_FOR_RDY_WINDOW();
-  this->write_register16(0xC100, (uint8_t *) &gpio_setting_1[1], 6);
-  //  this->i2c_write_cont_((uint8_t *) &gpio_setting_1, sizeof(gpio_setting_1));
-  WAIT_FOR_RDY_WINDOW();
-  this->write_register16(0xC200, (uint8_t *) &gpio_setting_2[1], 6);
-  //  this->i2c_write_cont_((uint8_t *) &gpio_setting_2, sizeof(gpio_setting_2));
-
-  WAIT_FOR_RDY_WINDOW();
-  this->write_register(0xD0, (uint8_t *) &pmu_sys_setting[1], sizeof(pmu_sys_setting) - 1);
-  // this->i2c_write_((uint8_t *) &pmu_sys_setting, sizeof(pmu_sys_setting));
-
-  this->i2c_stop_and_delay_();
-
-  uint16_t ch_setup_reg = 0x00A0;
+  // uint16_t ch_setup_reg = 0x00A0;
   uint16_t ch_setup_reg2 = 0xA000;
-  uint16_t data = 0;
+  // uint16_t data = 0;
   uint16_t data2 = 0;
 
   for (uint16_t ch_num = 0; ch_num < 10; ch_num++) {
-    ch_setup_reg = 0x00A0 + ch_num;
-    data = 0;
+    //   ch_setup_reg = 0x00A0 + ch_num;
+    //   data = 0;
 
     ch_setup_reg2 = 0xA000 + ch_num * 0x0100;
-    data2 = 0;
+    //   data2 = 0;
 
+    //   WAIT_FOR_RDY_WINDOW();
+    //   // this->i2c_read_registers_((uint8_t *) &ch_setup_reg, 2, (uint8_t *) &data, 2);
+    //   // this->read_register16(ch_setup_reg2, (uint8_t *) &data2, 2, false);
+    //   this->read_register((uint8_t) ch_setup_reg, (uint8_t *) &data2, 2);
+    //   ESP_LOGD(TAG, "iqs7222c channel config [%d] 0x%04X", ch_num, data2);
+    //   //    this->i2c_stop_and_delay_();
+    // }
     WAIT_FOR_RDY_WINDOW();
-    // this->i2c_read_registers_((uint8_t *) &ch_setup_reg, 2, (uint8_t *) &data, 2);
-    // this->read_register16(ch_setup_reg2, (uint8_t *) &data2, 2, false);
-    this->read_register((uint8_t) ch_setup_reg, (uint8_t *) &data2, 2);
-    ESP_LOGD(TAG, "iqs7222c channel config [%d] 0x%04X", ch_num, data2);
-    //    this->i2c_stop_and_delay_();
+    this->read_register16(ch_setup_reg2, (uint8_t *) &data2, 2, false);
+    ESP_LOGD(TAG, "iqs7222c channel config [%u] 0x%04X", ch_num, data2);
   }
 }
 

@@ -116,6 +116,7 @@ class IQS7222CComponent : public Component, public i2c::I2CDevice {
   inline void i2c_read_(uint8_t *data, uint16_t data_len);
   void i2c_read_registers_(uint8_t *addr, uint16_t addr_size, uint8_t *data, uint16_t data_len);
 
+  void i2c_write_random_bytes_(uint16_t memoryAddress, uint8_t numBytes, uint8_t bytesArray[], bool stopOrRestart);
   //
   // FSM
   //

@@ -162,7 +162,7 @@ CONFIG_SCHEMA = (
             cv.Optional(CONF_TEST_MODE, default=False): cv.boolean,
             cv.Optional(CONF_ENABLE_ATI, default=True): cv.boolean,
             cv.Optional(
-                CONF_INIT_DELAY, default=0
+                CONF_INIT_DELAY, default="0s"
             ): cv.positive_time_period_milliseconds,
             cv.Optional(CONF_BUTTON_0): IQS_BUTTON_SCHEMA,
             cv.Optional(CONF_BUTTON_1): IQS_BUTTON_SCHEMA,

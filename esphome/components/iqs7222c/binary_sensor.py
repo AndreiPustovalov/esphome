@@ -10,7 +10,7 @@ IQS7222CButton = iqs7222c_ns.class_("IQS7222CButton", binary_sensor.BinarySensor
 CONFIG_SCHEMA = binary_sensor.binary_sensor_schema(IQS7222CButton).extend(
     {
         cv.GenerateID(CONF_IQS7222C_ID): cv.use_id(IQS7222CComponent),
-        cv.Required(CONF_CHANNEL): cv.int_range(min=0, max=7),
+        cv.Required(CONF_CHANNEL): cv.int_range(min=0, max=9),
     }
 )
 
