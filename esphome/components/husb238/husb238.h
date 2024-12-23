@@ -126,7 +126,7 @@ union RegSrcPdoSelect {
     uint8_t reserved : 4;
     SrcVoltageSelection voltage : 4;
   };
-  u_int8_t raw;
+  uint8_t raw;
 };
 
 union RegGoCommand {
@@ -145,10 +145,8 @@ class Husb238Component : public PollingComponent, public i2c::I2CDevice {
   void update() override;
   void dump_config() override;
 
-  bool command_request_voltage(int volt);
   bool command_request_voltage(const std::string &select_state);
   bool command_request_pdo(SrcVoltageSelection voltage);
-  bool command_get_src_cap() { return this->send_command_(CommandFunction::GET_SRC_CAP); };
   bool command_reset() { return this->send_command_(CommandFunction::HARD_RESET); };
 
   bool is_attached();
@@ -192,7 +190,7 @@ class Husb238Component : public PollingComponent, public i2c::I2CDevice {
     uint8_t raw[10];
   } registers_;
 
-  bool read_all_(bool *is_changed);
+  bool read_all_(bool &is_changed);
   bool read_status_();
   bool send_command_(CommandFunction function);
 

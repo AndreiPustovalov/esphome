@@ -129,8 +129,6 @@ void Husb238Component::setup() {
     this->mark_failed();
     return;
   };
-
-  this->command_get_src_cap();
 }
 
 void Husb238Component::update() {
@@ -139,7 +137,7 @@ void Husb238Component::update() {
   }
 
   bool is_changed;
-  if (!this->read_all_(&is_changed)) {
+  if (!this->read_all_(is_changed)) {
     is_changed = !this->status_has_error();
     this->status_set_error("Unnable to commucate with HUSB238 chip");
     std::fill(std::begin(this->registers_.raw), std::end(this->registers_.raw), 0);
@@ -223,34 +221,6 @@ void Husb238Component::dump_config() {
 #endif
 }
 
-bool Husb238Component::command_request_voltage(int volt) {
-  SrcVoltageSelection voltage;
-  switch (volt) {
-    case 5:
-      voltage = SrcVoltageSelection::SRC_PDO_5V;
-      break;
-    case 9:
-      voltage = SrcVoltageSelection::SRC_PDO_9V;
-      break;
-    case 12:
-      voltage = SrcVoltageSelection::SRC_PDO_12V;
-      break;
-    case 15:
-      voltage = SrcVoltageSelection::SRC_PDO_15V;
-      break;
-    case 18:
-      voltage = SrcVoltageSelection::SRC_PDO_18V;
-      break;
-    case 20:
-      voltage = SrcVoltageSelection::SRC_PDO_20V;
-      break;
-    default:
-      ESP_LOGE(TAG, "Invalid voltage");
-      return false;
-  }
-  return this->command_request_pdo(voltage);
-}
-
 bool Husb238Component::command_request_voltage(const std::string &select_state) {
   auto volt = SELECT_VOLTAGE.find(select_state);
   if (volt == SELECT_VOLTAGE.end()) {
@@ -286,34 +256,19 @@ bool Husb238Component::is_attached() {
   return this->registers_.pd_status1.attached;
 }
 
-bool Husb238Component::read_all_(bool *is_changed) {
+bool Husb238Component::read_all_(bool &is_changed) {
   if (!this->is_ready()) {
     ESP_LOGE(TAG, "Component not ready");
     return false;
   }
-  uint16_t old_crc = 0;
-  if (is_changed != nullptr) {
-    old_crc = crc16(&this->registers_.raw[0], sizeof(this->registers_));
-  }
+  uint16_t old_crc = crc16(&this->registers_.raw[0], sizeof(this->registers_));
+ 
   auto ok = this->read_bytes(static_cast<uint8_t>(CommandRegister::PD_STATUS0), &this->registers_.raw[0], REG_NUM);
   if (!ok) {
     ESP_LOGE(TAG, "Error reading HUSB238");
   }
-  if (is_changed != nullptr) {
-    *is_changed = old_crc != crc16(&this->registers_.raw[0], sizeof(this->registers_));
-  }
-  return ok;
-}
-
-bool Husb238Component::read_status_() {
-  if (!this->is_ready()) {
-    ESP_LOGE(TAG, "Component not ready");
-    return false;
-  }
-  auto ok = this->read_bytes(static_cast<uint8_t>(CommandRegister::PD_STATUS0), &this->registers_.raw[0], 2);
-  if (!ok) {
-    ESP_LOGE(TAG, "Error reading HUSB238");
-  }
+  is_changed = old_crc != crc16(&this->registers_.raw[0], sizeof(this->registers_));
+  
   return ok;
 }
 
@@ -345,8 +300,8 @@ bool Husb238Component::select_pdo_voltage_(SrcVoltageSelection voltage) {
     return false;
   }
 
-  this->registers_.src_pdo_sel.voltage = voltage;
-  auto ok = this->write_byte(static_cast<uint8_t>(CommandRegister::SRC_PDO), this->registers_.src_pdo_sel.raw);
+  RegSrcPdoSelect reg_data = {0, voltage};
+  auto ok = this->write_byte(static_cast<uint8_t>(CommandRegister::SRC_PDO), reg_data.raw);
   if (!ok) {
     ESP_LOGE(TAG, "Error setting PDO voltage");
   }
