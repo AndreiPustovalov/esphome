@@ -51,6 +51,21 @@ static float current_to_float(SrcCurrent current) {
   }
 }
 
+static float current_5v_to_float(SrcCurrent5V current) {
+  switch (current) {
+    case SrcCurrent5V::I_0_5_A:
+      return 0.5f;
+    case SrcCurrent5V::I_1_5_A:
+      return 1.5f;
+    case SrcCurrent5V::I_2_4_A:
+      return 2.4f;
+    case SrcCurrent5V::I_3_0_A:
+      return 3.0f;
+    default:
+      return 0.0f;
+  }
+}
+
 static float voltage_to_float(SrcVoltage voltage) {
   switch (voltage) {
     case SrcVoltage::PD_5V:
@@ -116,15 +131,6 @@ void Husb238Component::setup() {
   };
 
   this->command_get_src_cap();
-  this->read_all_();
-}
-
-void Husb238Component::loop() {
-  if (!this->is_ready()) {
-    return;
-  }
-
-  this->read_all_();
 }
 
 void Husb238Component::update() {
@@ -132,7 +138,19 @@ void Husb238Component::update() {
     return;
   }
 
-#ifdef BINARY_SENSOR
+  bool is_changed;
+  if (!this->read_all_(&is_changed)) {
+    is_changed = !this->status_has_error();
+    this->status_set_error("Unnable to commucate with HUSB238 chip");
+    std::fill(std::begin(this->registers_.raw), std::end(this->registers_.raw), 0);
+  } else {
+    this->status_clear_error();
+  }
+
+  if (!is_changed)
+    return;
+
+#ifdef USE_BINARY_SENSOR
   if (this->attached_binary_sensor_ != nullptr) {
     this->attached_binary_sensor_->publish_state(this->is_attached());
   }
@@ -141,10 +159,15 @@ void Husb238Component::update() {
   }
 #endif
 #ifdef USE_SENSOR
+  auto explicit_contract_voltage = this->registers_.pd_status0.voltage;
   if (this->voltage_sensor_ != nullptr) {
     float voltage{0.0f};
     if (this->is_attached()) {
-      voltage = voltage_to_float(this->registers_.pd_status0.voltage);
+      if (explicit_contract_voltage == SrcVoltage::PD_UNATTACHED) {
+        voltage = 5;
+      } else {
+        voltage = voltage_to_float(explicit_contract_voltage);
+      }
     }
     this->voltage_sensor_->publish_state(voltage);
   }
@@ -152,7 +175,11 @@ void Husb238Component::update() {
   if (this->current_sensor_ != nullptr) {
     float current{0.0f};
     if (this->is_attached()) {
-      current = current_to_float(this->registers_.pd_status0.current);
+      if (explicit_contract_voltage == SrcVoltage::PD_UNATTACHED) {
+        current = current_5v_to_float(this->registers_.pd_status1.current_5v);
+      } else {
+        current = current_to_float(this->registers_.pd_status0.current);
+      }
     }
     this->current_sensor_->publish_state(current);
   }
@@ -259,14 +286,21 @@ bool Husb238Component::is_attached() {
   return this->registers_.pd_status1.attached;
 }
 
-bool Husb238Component::read_all_() {
+bool Husb238Component::read_all_(bool *is_changed) {
   if (!this->is_ready()) {
     ESP_LOGE(TAG, "Component not ready");
     return false;
   }
+  uint16_t old_crc = 0;
+  if (is_changed != nullptr) {
+    old_crc = crc16(&this->registers_.raw[0], sizeof(this->registers_));
+  }
   auto ok = this->read_bytes(static_cast<uint8_t>(CommandRegister::PD_STATUS0), &this->registers_.raw[0], REG_NUM);
   if (!ok) {
     ESP_LOGE(TAG, "Error reading HUSB238");
+  }
+  if (is_changed != nullptr) {
+    *is_changed = old_crc != crc16(&this->registers_.raw[0], sizeof(this->registers_));
   }
   return ok;
 }

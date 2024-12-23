@@ -10,7 +10,7 @@ DEPENDENCIES = ["husb238"]
 CONF_ATTACHED = "attached"
 CONF_CC_DIRECTION = "cc_direction"
 
-TYPES = [CONF_ATTACHED]
+TYPES = [CONF_ATTACHED, CONF_CC_DIRECTION]
 
 CONFIG_SCHEMA = cv.All(
     cv.Schema(

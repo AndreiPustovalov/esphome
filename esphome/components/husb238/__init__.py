@@ -19,7 +19,7 @@ CONFIG_SCHEMA = cv.Schema(
             cv.GenerateID(): cv.declare_id(Husb238Component),
         }
     )
-    .extend(cv.polling_component_schema("10s"))
+    .extend(cv.polling_component_schema("1s"))
     .extend(i2c.i2c_device_schema(0x08))
 )
 

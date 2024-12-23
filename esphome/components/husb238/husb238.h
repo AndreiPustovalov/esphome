@@ -142,7 +142,6 @@ class Husb238Component : public PollingComponent, public i2c::I2CDevice {
   Husb238Component() = default;
 
   void setup() override;
-  void loop() override;
   void update() override;
   void dump_config() override;
 
@@ -153,6 +152,8 @@ class Husb238Component : public PollingComponent, public i2c::I2CDevice {
   bool command_reset() { return this->send_command_(CommandFunction::HARD_RESET); };
 
   bool is_attached();
+
+  void defer_update() { this->set_timeout(300, [this]() { this->update(); }); }
 
 #ifdef USE_SENSOR
   SUB_SENSOR(voltage)
@@ -191,7 +192,7 @@ class Husb238Component : public PollingComponent, public i2c::I2CDevice {
     uint8_t raw[10];
   } registers_;
 
-  bool read_all_();
+  bool read_all_(bool *is_changed);
   bool read_status_();
   bool send_command_(CommandFunction function);
 
@@ -210,6 +211,7 @@ class Husb238VoltageSelect : public select::Select, public Parented<Husb238Compo
   void control(const std::string &value) override {
     this->publish_state(value);
     this->parent_->command_request_voltage(state);
+    this->parent_->defer_update();
   };
 };
 #endif
